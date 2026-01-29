@@ -104,4 +104,8 @@ export class FileHandler {
     const buffer = await fs.promises.readFile(filePath);
     return buffer.toString('base64');
   }
+
+  static async readTextFile(filePath: string): Promise<string> {
+    return await fs.promises.readFile(filePath, 'utf-8');
+  }
 }

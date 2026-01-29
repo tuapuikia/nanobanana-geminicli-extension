@@ -18,6 +18,7 @@ import {
   IconPromptArgs,
   PatternPromptArgs,
   DiagramPromptArgs,
+  MangaPromptArgs,
 } from './types.js';
 
 class NanoBananaServer {
@@ -396,6 +397,48 @@ class NanoBananaServer {
               required: ['prompt'],
             },
           },
+          {
+            name: 'generate_manga',
+            description:
+              'Generate a manga page or panel from a story script, with optional character reference for consistency',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                prompt: {
+                  type: 'string',
+                  description:
+                    'Description of the scene or context (e.g., "Battle scene in a futuristic city")',
+                },
+                story_file: {
+                  type: 'string',
+                  description: 'Path to the markdown/text file containing the story script',
+                },
+                character_image: {
+                  type: 'string',
+                  description: 'Path to an image of the main character to ensure consistency',
+                },
+                style: {
+                  type: 'string',
+                  enum: ['shonen', 'shojo', 'seinen', '4-koma', 'webtoon'],
+                  description: 'Manga style',
+                  default: 'shonen',
+                },
+                layout: {
+                  type: 'string',
+                  enum: ['single_page', 'strip', 'webtoon'],
+                  description: 'Page layout',
+                  default: 'single_page',
+                },
+                preview: {
+                  type: 'boolean',
+                  description:
+                    'Automatically open generated images in default viewer',
+                  default: false,
+                },
+              },
+              required: ['story_file'],
+            },
+          },
         ],
       };
     });
@@ -522,6 +565,22 @@ class NanoBananaServer {
             break;
           }
 
+          case 'generate_manga': {
+            const mangaRequest: ImageGenerationRequest = {
+              prompt: this.buildMangaPrompt(args as any),
+              storyFile: args?.story_file as string,
+              characterImage: args?.character_image as string,
+              mode: 'manga',
+              outputCount: 1,
+              preview: args?.preview as boolean,
+              noPreview:
+                (args?.noPreview as boolean) ||
+                (args?.['no-preview'] as boolean),
+            };
+            response = await this.imageGenerator.generateMangaPage(mangaRequest);
+            break;
+          }
+
           default:
             throw new Error(`Unknown tool: ${name}`);
         }
@@ -602,6 +661,23 @@ class NanoBananaServer {
     prompt += `, ${complexity} level of detail, ${colors} color scheme`;
     prompt += `, ${annotations} annotations and labels`;
     prompt += ', clean technical illustration, clear visual hierarchy';
+
+    return prompt;
+  }
+
+  private buildMangaPrompt(args?: MangaPromptArgs): string {
+    const basePrompt = args?.prompt || 'Manga page';
+    const style = args?.style || 'shonen';
+    const layout = args?.layout || 'single_page';
+
+    let prompt = `${basePrompt}, ${style} manga style, ${layout} layout`;
+    prompt += ', professional manga art, high quality, detailed ink work, screentones';
+
+    if (layout === 'webtoon') {
+      prompt += ', vertical scrolling format, full color';
+    } else {
+      prompt += ', black and white, traditional manga format';
+    }
 
     return prompt;
   }

@@ -540,6 +540,224 @@ export class ImageGenerator {
         };
       }
     }
+
+  private extractImagePaths(text: string): string[] {
+    // Looks for strings that look like file paths with image extensions
+    // e.g. "characters/stan.png", "./ref/image.jpg"
+    const regex = /(?:[\w\-\.\/\\\:]+)\.(?:png|jpg|jpeg|webp)/gi;
+    const matches = text.match(regex) || [];
+    return [...new Set(matches)]; // Return unique paths
+  }
+
+  async generateMangaPage(
+    request: ImageGenerationRequest,
+  ): Promise<ImageGenerationResponse> {
+    try {
+      if (!request.storyFile) {
+        return {
+          success: false,
+          message: 'Story file is required for manga generation',
+          error: 'Missing storyFile parameter',
+        };
+      }
+
+      // Read story file
+      const storyFileResult = FileHandler.findInputFile(request.storyFile);
+      if (!storyFileResult.found) {
+        return {
+          success: false,
+          message: `Story file not found: ${request.storyFile}`,
+          error: `Searched in: ${storyFileResult.searchedPaths.join(', ')}`,
+        };
+      }
+      const storyContent = await FileHandler.readTextFile(
+        storyFileResult.filePath!,
+      );
+
+      // Parse Story Content for Pages
+      // Splits by headers like "# Page 1", "## Page 2", "Page 3:"
+      const pageRegex = /(?:^|\n)(#{1,3}\s*Page\s*\d+|Page\s*\d+:)/i;
+      const sections = storyContent.split(pageRegex);
+      
+      let globalContext = '';
+      const pages: { header: string; content: string }[] = [];
+
+      if (sections.length < 2) {
+        // No distinct page headers found, treat as single page
+        globalContext = ''; 
+        pages.push({ header: 'Single Page', content: storyContent });
+      } else {
+        globalContext = sections[0].trim(); // Text before first page header
+        for (let i = 1; i < sections.length; i += 2) {
+          pages.push({
+            header: sections[i].trim(),
+            content: sections[i + 1] || '',
+          });
+        }
+      }
+
+      console.error(
+        `DEBUG - Parsed ${pages.length} page(s) from story file. Global context length: ${globalContext.length}`,
+      );
+
+      const generatedFiles: string[] = [];
+      let previousPagePath: string | null = null;
+      let firstError: string | null = null;
+
+      // Extract Global Reference Images
+      const globalImagePaths = this.extractImagePaths(globalContext);
+      const globalReferenceImages: { data: string; mimeType: string }[] = [];
+
+      for (const imgPath of globalImagePaths) {
+        const fileRes = FileHandler.findInputFile(imgPath);
+        if (fileRes.found) {
+            try {
+                const b64 = await FileHandler.readImageAsBase64(fileRes.filePath!);
+                globalReferenceImages.push({
+                    data: b64,
+                    mimeType: 'image/png' // Assuming png for simplicity, logic could be smarter
+                });
+                console.error(`DEBUG - Loaded global reference: ${imgPath}`);
+            } catch (e) {
+                console.error(`DEBUG - Failed to load global ref ${imgPath}:`, e);
+            }
+        }
+      }
+
+      // Explicit Character Image (CLI Argument)
+      if (request.characterImage) {
+        const charRes = FileHandler.findInputFile(request.characterImage);
+        if (charRes.found) {
+             const b64 = await FileHandler.readImageAsBase64(charRes.filePath!);
+             globalReferenceImages.push({ data: b64, mimeType: 'image/png' });
+             globalContext += `\n\n(See attached character reference: ${request.characterImage})`;
+        }
+      }
+
+      // Iterate through pages
+      for (let i = 0; i < pages.length; i++) {
+        const page = pages[i];
+        console.error(`DEBUG - Processing ${page.header}...`);
+
+        // Construct Prompt
+        let fullPrompt = `${request.prompt}\n\n[GLOBAL CONTEXT]\n${globalContext}\n\n[CURRENT PAGE: ${page.header}]\n${page.content}`;
+        
+        // Prepare Message Parts
+        const parts: any[] = [{ text: fullPrompt }];
+
+        // Add Global References
+        for (const img of globalReferenceImages) {
+            parts.push({ inlineData: img });
+        }
+
+        // Add Page Specific References
+        const pageImagePaths = this.extractImagePaths(page.content);
+        for (const imgPath of pageImagePaths) {
+            // Avoid duplicates if already in global
+            if (globalImagePaths.includes(imgPath)) continue;
+
+            const fileRes = FileHandler.findInputFile(imgPath);
+            if (fileRes.found) {
+                try {
+                    const b64 = await FileHandler.readImageAsBase64(fileRes.filePath!);
+                    parts.push({ inlineData: { data: b64, mimeType: 'image/png' } });
+                    console.error(`DEBUG - Loaded page reference: ${imgPath}`);
+                } catch (e) {
+                    console.error(`DEBUG - Failed to load page ref ${imgPath}:`, e);
+                }
+            }
+        }
+
+        // Add Previous Page Reference (Sequential Consistency)
+        if (previousPagePath) {
+            try {
+                const prevB64 = await FileHandler.readImageAsBase64(previousPagePath);
+                parts.push({ inlineData: { data: prevB64, mimeType: 'image/png' } });
+                parts[0].text += `\n\n[PREVIOUS PAGE REFERENCE]\nThe attached image is the immediately preceding page (${pages[i-1].header}). Maintain strict visual continuity with it regarding environment, lighting, and character positioning where applicable.`;
+                console.error(`DEBUG - Added previous page as reference.`);
+            } catch (e) {
+                console.error(`DEBUG - Failed to load previous page ref:`, e);
+            }
+        }
+
+        try {
+            const response = await this.ai.models.generateContent({
+              model: this.modelName,
+              contents: [{ role: 'user', parts: parts }],
+            });
+    
+            let imageSaved = false;
+            if (response.candidates && response.candidates[0]?.content?.parts) {
+              for (const part of response.candidates[0].content.parts) {
+                let imageBase64: string | undefined;
+                if (part.inlineData?.data) {
+                  imageBase64 = part.inlineData.data;
+                } else if (part.text && this.isValidBase64ImageData(part.text)) {
+                  imageBase64 = part.text;
+                }
+    
+                if (imageBase64) {
+                  // Determine filename based on page header or index
+                  const cleanHeader = page.header.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                  const filename = FileHandler.generateFilename(
+                    `manga_${cleanHeader}`,
+                    'png',
+                    0,
+                  );
+                  const fullPath = await FileHandler.saveImageFromBase64(
+                    imageBase64,
+                    FileHandler.ensureOutputDirectory(),
+                    filename,
+                  );
+                  generatedFiles.push(fullPath);
+                  previousPagePath = fullPath; // Update for next iteration
+                  imageSaved = true;
+                  console.error(`DEBUG - Generated ${page.header}: ${fullPath}`);
+                  break; 
+                }
+              }
+            }
+
+            if (!imageSaved) {
+                const msg = `Failed to generate image data for ${page.header}`;
+                console.error(`DEBUG - ${msg}`);
+                if (!firstError) firstError = msg;
+            }
+
+        } catch (error: unknown) {
+            const msg = this.handleApiError(error);
+            console.error(`DEBUG - Error generating ${page.header}:`, msg);
+            if (!firstError) firstError = msg;
+            // Decide whether to continue? For sequential manga, failure in middle breaks chain.
+            // But maybe we should try best effort for remaining pages? 
+            // Let's continue but previousPagePath will stay as the last successful one (or null).
+        }
+      }
+
+      if (generatedFiles.length > 0) {
+        await this.handlePreview(generatedFiles, request);
+        return {
+          success: true,
+          message: `Successfully generated ${generatedFiles.length} of ${pages.length} manga pages/panels.`,
+          generatedFiles,
+        };
+      }
+
+      return {
+        success: false,
+        message: 'Failed to generate manga pages',
+        error: firstError || 'No images generated',
+      };
+    } catch (error: unknown) {
+      console.error('DEBUG - Error in generateMangaPage:', error);
+      return {
+        success: false,
+        message: 'Failed to generate manga page',
+        error: this.handleApiError(error),
+      };
+    }
+  }
+
   async editImage(
     request: ImageGenerationRequest,
   ): Promise<ImageGenerationResponse> {

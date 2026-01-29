@@ -11,6 +11,7 @@ Analyze the user request and determine the most appropriate tool:
 - For seamless patterns, textures, backgrounds: use generate_pattern tool
 - For visual stories, sequences, tutorials: use generate_story tool
 - For technical diagrams, flowcharts, architecture: use generate_diagram tool
+- For manga pages/panels from story scripts: use generate_manga tool
 
 Be intelligent about interpreting the user's intent from their natural language description and select the most specialized tool available.
 
