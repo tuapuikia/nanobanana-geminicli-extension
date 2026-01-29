@@ -277,7 +277,7 @@ export class ImageGenerator {
               if (part.inlineData?.data) {
                 imageBase64 = part.inlineData.data;
                 console.error('DEBUG - Found image data in inlineData:', {
-                  length: imageBase64.length,
+                  length: imageBase64?.length ?? 0,
                   mimeType: part.inlineData.mimeType,
                 });
               } else if (part.text && this.isValidBase64ImageData(part.text)) {
@@ -634,10 +634,69 @@ export class ImageGenerator {
         }
       }
 
+      // Filter pages if specific page requested
+      let pagesToProcess = pages;
+      if (request.page) {
+        const targetPage = request.page.toLowerCase().trim();
+        const isTargetNumeric = /^\d+$/.test(targetPage);
+
+        pagesToProcess = pages.filter(p => {
+            const headerLower = p.header.toLowerCase();
+            
+            if (isTargetNumeric) {
+                 // Strict numeric matching
+                 // Extract all numbers from header
+                 const numbers = headerLower.match(/\d+/g);
+                 if (!numbers) return false;
+                 // Check if ANY of the numbers in the header exactly match the target
+                 return numbers.some(n => n === targetPage);
+            } else {
+                // Text matching
+                return headerLower.includes(targetPage);
+            }
+        });
+
+        if (pagesToProcess.length === 0) {
+             return {
+                success: false,
+                message: `Page "${request.page}" not found in story file.`,
+                error: 'Page not found',
+            };
+        }
+        console.error(`DEBUG - Filtering for page "${request.page}". Found ${pagesToProcess.length} match(es).`);
+      }
+
       // Iterate through pages
-      for (let i = 0; i < pages.length; i++) {
-        const page = pages[i];
+      for (let i = 0; i < pagesToProcess.length; i++) {
+        const page = pagesToProcess[i];
+        
+        // Find original index to locate previous page in the full story
+        const originalIndex = pages.findIndex(p => p === page);
+
         console.error(`DEBUG - Processing ${page.header}...`);
+
+        // Resolve Previous Page Reference (Logic for Continuity)
+        // If we don't have a previousPagePath from this run, try to find one from disk
+        if (!previousPagePath && originalIndex > 0) {
+            const previousPageHeader = pages[originalIndex - 1].header;
+            
+            // Replicate FileHandler.generateFilename logic to find the expected filename
+            const rawPrevPrompt = `manga ${previousPageHeader}`;
+            const prevBaseName = rawPrevPrompt.toLowerCase()
+                                    .replace(/[^a-z0-9\s]/g, '')
+                                    .replace(/\s+/g, '_')
+                                    .substring(0, 32);
+            
+            const existingPrevFile = FileHandler.findLatestFile(prevBaseName);
+            
+            if (existingPrevFile) {
+                previousPagePath = existingPrevFile;
+                console.error(`DEBUG - Found existing previous page on disk: ${existingPrevFile}`);
+                console.error(`DEBUG - Using it as reference for ${page.header}`);
+            } else {
+                console.error(`DEBUG - No existing previous page found for ${previousPageHeader} (searched for ${prevBaseName}*)`);
+            }
+        }
 
         // Construct Prompt
         let fullPrompt = `${request.prompt}\n\n[GLOBAL CONTEXT]\n${globalContext}\n\n[CURRENT PAGE: ${page.header}]\n${page.content}`;
@@ -673,7 +732,7 @@ export class ImageGenerator {
             try {
                 const prevB64 = await FileHandler.readImageAsBase64(previousPagePath);
                 parts.push({ inlineData: { data: prevB64, mimeType: 'image/png' } });
-                parts[0].text += `\n\n[PREVIOUS PAGE REFERENCE]\nThe attached image is the immediately preceding page (${pages[i-1].header}). Maintain strict visual continuity with it regarding environment, lighting, and character positioning where applicable.`;
+                parts[0].text += `\n\n[PREVIOUS PAGE REFERENCE]\nThe attached image is the immediately preceding page (${originalIndex > 0 ? pages[originalIndex - 1].header : 'previous'}). Maintain strict visual continuity with it regarding environment, lighting, and character positioning where applicable.`;
                 console.error(`DEBUG - Added previous page as reference.`);
             } catch (e) {
                 console.error(`DEBUG - Failed to load previous page ref:`, e);
@@ -698,9 +757,9 @@ export class ImageGenerator {
     
                 if (imageBase64) {
                   // Determine filename based on page header or index
-                  const cleanHeader = page.header.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                  const filenamePrompt = `manga ${page.header}`;
                   const filename = FileHandler.generateFilename(
-                    `manga_${cleanHeader}`,
+                    filenamePrompt,
                     'png',
                     0,
                   );
@@ -817,7 +876,7 @@ export class ImageGenerator {
           if (part.inlineData?.data) {
             resultImageBase64 = part.inlineData.data;
             console.error('DEBUG - Found edited image in inlineData:', {
-              length: resultImageBase64.length,
+              length: resultImageBase64?.length ?? 0,
               mimeType: part.inlineData.mimeType,
             });
           } else if (part.text && this.isValidBase64ImageData(part.text)) {

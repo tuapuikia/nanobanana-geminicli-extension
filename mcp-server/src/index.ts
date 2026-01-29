@@ -429,6 +429,10 @@ class NanoBananaServer {
                   description: 'Page layout',
                   default: 'single_page',
                 },
+                page: {
+                  type: 'string',
+                  description: 'Specific page number or header to generate (e.g., "2", "Page 2")',
+                },
                 preview: {
                   type: 'boolean',
                   description:
@@ -443,7 +447,7 @@ class NanoBananaServer {
       };
     });
 
-    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    this.server.setRequestHandler(CallToolRequestSchema, async (request: any) => {
       if (this.initializationError) {
         throw this.initializationError;
       }
@@ -572,6 +576,7 @@ class NanoBananaServer {
               characterImage: args?.character_image as string,
               mode: 'manga',
               outputCount: 1,
+              page: args?.page as string,
               preview: args?.preview as boolean,
               noPreview:
                 (args?.noPreview as boolean) ||
@@ -683,7 +688,7 @@ class NanoBananaServer {
   }
 
   private setupErrorHandling() {
-    this.server.onerror = (error) => {
+    this.server.onerror = (error: unknown) => {
       console.error('[MCP Error]', error);
     };
 

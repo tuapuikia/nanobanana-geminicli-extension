@@ -108,4 +108,39 @@ export class FileHandler {
   static async readTextFile(filePath: string): Promise<string> {
     return await fs.promises.readFile(filePath, 'utf-8');
   }
+
+  static findLatestFile(baseName: string): string | null {
+    const outputPath = this.ensureOutputDirectory();
+    
+    try {
+      const files = fs.readdirSync(outputPath);
+      
+      // Filter files that match the baseName pattern EXACTLY or with suffix
+      // Strict regex: ^baseName(_\d+)?\.(png|jpg|jpeg)$
+      // We need to escape special regex chars in baseName just in case, 
+      // though generateFilename cleans them.
+      const escapedBaseName = baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`^${escapedBaseName}(_\\d+)?\\.(png|jpg|jpeg)$`, 'i');
+
+      const matches = files.filter((file: string) => regex.test(file));
+
+      if (matches.length === 0) {
+        return null;
+      }
+
+      // Sort by modification time, newest first
+      const sortedMatches = matches.map((file: string) => {
+        const fullPath = path.join(outputPath, file);
+        return {
+          path: fullPath,
+          mtime: fs.statSync(fullPath).mtime.getTime()
+        };
+      }).sort((a: { mtime: number }, b: { mtime: number }) => b.mtime - a.mtime);
+
+      return sortedMatches[0].path;
+    } catch (error) {
+      console.error('Error searching for latest file:', error);
+      return null;
+    }
+  }
 }
