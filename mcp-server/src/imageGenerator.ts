@@ -580,8 +580,10 @@ export class ImageGenerator {
           };
         }
 
-        // Sort files to ensure sequence
-        dirResult.files.sort();
+        // Sort files to ensure sequence (using natural sort for numbered files)
+        dirResult.files.sort((a, b) => 
+          a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+        );
 
         console.error(`DEBUG - Found ${dirResult.files.length} images in directory.`);
         const generatedFiles: string[] = [];
