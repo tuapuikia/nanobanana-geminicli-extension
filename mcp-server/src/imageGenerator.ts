@@ -563,6 +563,20 @@ export class ImageGenerator {
     }
   }
 
+  private getAspectRatioString(layout?: string): string {
+    switch (layout) {
+      case 'webtoon':
+        return '9:16';
+      case 'strip':
+        return '16:9';
+      case 'single_page':
+        return '3:4';
+      case 'square':
+      default:
+        return '1:1';
+    }
+  }
+
   async generateMangaPage(
     request: ImageGenerationRequest,
   ): Promise<ImageGenerationResponse> {
@@ -992,6 +1006,9 @@ export class ImageGenerator {
             const response = await this.ai.models.generateContent({
               model: this.modelName,
               contents: [{ role: 'user', parts: parts }],
+              config: {
+                aspectRatio: this.getAspectRatioString(request.layout),
+              } as any,
             });
     
             let imageSaved = false;
