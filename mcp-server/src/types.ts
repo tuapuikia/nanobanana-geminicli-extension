@@ -22,6 +22,7 @@ export interface ImageGenerationRequest {
   // Manga specific
   storyFile?: string;
   characterImage?: string;
+  referencePage?: string;
   page?: string;
   layout?: string;
   style?: string;
@@ -85,6 +86,7 @@ export interface MangaPromptArgs {
   input_image?: string;
   input_directory?: string;
   character_image?: string;
+  reference_page?: string;
   style?: string;
   layout?: string;
   page?: string;

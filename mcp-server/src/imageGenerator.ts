@@ -893,36 +893,69 @@ export class ImageGenerator {
         }
       }
 
+      // Explicit Reference Page (CLI Argument)
+      if (request.referencePage) {
+        const refPageNum = request.referencePage.replace(/[^0-9]/g, '');
+        // Try to find the file for "Page X"
+        // We assume the standard naming convention: manga_page_X...
+        const rawRefPrompt = `manga Page ${refPageNum}`;
+        const refBaseName = rawRefPrompt.toLowerCase()
+                                .replace(/[^a-z0-9\s]/g, '')
+                                .replace(/\s+/g, '_')
+                                .substring(0, 32);
+        
+        const existingRefFile = FileHandler.findLatestFile(refBaseName);
+        
+        if (existingRefFile) {
+            try {
+                const b64 = await FileHandler.readImageAsBase64(existingRefFile);
+                globalReferenceImages.push({ data: b64, mimeType: 'image/png' });
+                globalContext += `\n\n(See attached reference image: Page ${refPageNum}). Use this image as a strong reference for visual style and character consistency.`;
+                console.error(`DEBUG - Loaded explicit reference page: ${existingRefFile}`);
+            } catch (e) {
+                console.error(`DEBUG - Failed to load reference page file:`, e);
+            }
+        } else {
+            console.error(`DEBUG - Requested reference page ${request.referencePage} (file: ${refBaseName}*) not found.`);
+        }
+      }
+
       // Filter pages if specific page requested
       let pagesToProcess = pages;
       if (request.page) {
-        const targetPage = request.page.toLowerCase().trim();
-        const isTargetNumeric = /^\d+$/.test(targetPage);
+        // Split by comma or "and" to support "1, 2" or "1 and 2"
+        const targets = request.page
+          .split(/[,&]|\s+and\s+/)
+          .map((s) => s.trim().toLowerCase())
+          .filter((s) => s.length > 0);
 
-        pagesToProcess = pages.filter(p => {
-            const headerLower = p.header.toLowerCase();
-            
+        pagesToProcess = pages.filter((p) => {
+          const headerLower = p.header.toLowerCase();
+          const headerNumbers = headerLower.match(/\d+/g) || [];
+
+          // Check if this page matches ANY of the targets
+          return targets.some((target) => {
+            const isTargetNumeric = /^\d+$/.test(target);
             if (isTargetNumeric) {
-                 // Strict numeric matching
-                 // Extract all numbers from header
-                 const numbers = headerLower.match(/\d+/g);
-                 if (!numbers) return false;
-                 // Check if ANY of the numbers in the header exactly match the target
-                 return numbers.some(n => n === targetPage);
+              // Check if ANY of the numbers in the header exactly match the target
+              return headerNumbers.some((n) => n === target);
             } else {
-                // Text matching
-                return headerLower.includes(targetPage);
+              // Text matching
+              return headerLower.includes(target);
             }
+          });
         });
 
         if (pagesToProcess.length === 0) {
-             return {
-                success: false,
-                message: `Page "${request.page}" not found in story file.`,
-                error: 'Page not found',
-            };
+          return {
+            success: false,
+            message: `Page(s) "${request.page}" not found in story file.`,
+            error: 'Page not found',
+          };
         }
-        console.error(`DEBUG - Filtering for page "${request.page}". Found ${pagesToProcess.length} match(es).`);
+        console.error(
+          `DEBUG - Filtering for pages "${request.page}". Found ${pagesToProcess.length} match(es).`,
+        );
       }
 
       // Iterate through pages

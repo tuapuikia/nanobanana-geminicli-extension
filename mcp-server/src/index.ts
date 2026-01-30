@@ -425,6 +425,10 @@ class NanoBananaServer {
                   type: 'string',
                   description: 'Path to an image of the main character to ensure consistency',
                 },
+                reference_page: {
+                  type: 'string',
+                  description: 'Specific page number to use as a style reference (e.g., "5" or "Page 5")',
+                },
                 style: {
                   type: 'string',
                   enum: ['shonen', 'shojo', 'seinen', '4-koma', 'webtoon'],
@@ -589,6 +593,7 @@ class NanoBananaServer {
               inputImage: args?.input_image as string,
               inputDirectory: args?.input_directory as string,
               characterImage: args?.character_image as string,
+              referencePage: args?.reference_page as string,
               mode: 'manga',
               outputCount: 1,
               page: args?.page as string,
