@@ -613,6 +613,10 @@ export class ImageGenerator {
                 
                 let editPrompt = `${request.prompt}. Maintain the original composition and content structure while applying the requested style and details.`;
                 
+                if (request.color) {
+                    editPrompt += " GENERATE IN FULL COLOR. Ignore any black and white instructions.";
+                }
+
                 if (characterReference) {
                     editPrompt += " Use the attached character reference image to strictly maintain consistent character colors (e.g., hair, clothes, eyes) and design.";
                 }
@@ -942,6 +946,10 @@ export class ImageGenerator {
         // Construct Prompt
         let fullPrompt = `${request.prompt}, ${ratioInstruction}\n\n[GLOBAL CONTEXT]\n${globalContext}\n\n[CURRENT PAGE: ${page.header}]\n${page.content}`;
         
+        if (request.color) {
+            fullPrompt += "\n\n[IMPORTANT STYLE OVERRIDE]\nGENERATE THIS PAGE IN FULL COLOR. IGNORE ANY PREVIOUS 'BLACK AND WHITE' INSTRUCTIONS.";
+        }
+
         // Prepare Message Parts
         const parts: any[] = [{ text: fullPrompt }];
 
