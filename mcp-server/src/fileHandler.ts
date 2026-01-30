@@ -57,6 +57,35 @@ export class FileHandler {
     };
   }
 
+  static findInputDirectory(dirName: string): { found: boolean; dirPath?: string; files: string[] } {
+    let targetPath = dirName;
+
+    if (!path.isAbsolute(dirName)) {
+      targetPath = path.join(process.cwd(), dirName);
+    }
+
+    if (fs.existsSync(targetPath) && fs.statSync(targetPath).isDirectory()) {
+      try {
+        const files = fs.readdirSync(targetPath)
+          .filter(file => /\.(png|jpg|jpeg|webp)$/i.test(file))
+          .map(file => path.join(targetPath, file));
+        
+        return {
+          found: true,
+          dirPath: targetPath,
+          files: files
+        };
+      } catch (e) {
+        console.error(`Error reading directory ${targetPath}:`, e);
+      }
+    }
+
+    return {
+      found: false,
+      files: []
+    };
+  }
+
   static generateFilename(
     prompt: string,
     format: 'png' | 'jpeg' = 'png',

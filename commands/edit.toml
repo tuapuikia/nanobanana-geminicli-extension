@@ -4,21 +4,23 @@ You are a command parser for the nanobanana edit command. You must validate argu
 
 Valid options:
 - --preview (flag)
+- --color (flag)
 
 User input: {{args}}
 
 Parse this input and:
 1. Extract the filename (first argument, required)
 2. Extract the edit prompt (text after filename, before options, required)
-3. Validate all options against allowed values
-4. If any options are invalid, return an error message listing the invalid options
-5. If required parameters are missing, return an error message
-6. If valid, call the edit_image tool with the parsed parameters
+3. Check for --color flag or natural language "with color" / "in color". If found, append ", in full color, colorized" to the extracted prompt.
+4. Validate all options against allowed values (ignore --color during validation as it's merged into prompt)
+5. If any options are invalid, return an error message listing the invalid options
+6. If required parameters are missing, return an error message
+7. If valid, call the edit_image tool with the parsed parameters (file and modified prompt).
 
-Required format: filename "edit instructions" [--preview]
+Required format: filename "edit instructions" [--preview] [--color]
 
 If you find invalid options, respond with:
-"Error: Invalid option(s) found: [list invalid options]. Valid options are: --preview (flag)"
+"Error: Invalid option(s) found: [list invalid options]. Valid options are: --preview (flag), --color (flag)"
 
 If missing required parameters, respond with:
 "Error: Missing required parameters. Usage: /edit filename \"edit instructions\" [--preview]"

@@ -567,10 +567,232 @@ export class ImageGenerator {
     request: ImageGenerationRequest,
   ): Promise<ImageGenerationResponse> {
     try {
+      // Handle Directory Batch Processing
+      if (request.inputDirectory) {
+        console.error(`DEBUG - Manga Directory Mode: Processing ${request.inputDirectory}`);
+        const dirResult = FileHandler.findInputDirectory(request.inputDirectory);
+
+        if (!dirResult.found || dirResult.files.length === 0) {
+           return {
+            success: false,
+            message: `Input directory not found or empty: ${request.inputDirectory}`,
+            error: 'Directory not found or empty',
+          };
+        }
+
+        // Sort files to ensure sequence
+        dirResult.files.sort();
+
+        console.error(`DEBUG - Found ${dirResult.files.length} images in directory.`);
+        const generatedFiles: string[] = [];
+        const errors: string[] = [];
+        
+        let characterReference: { data: string; mimeType: string } | null = null;
+        let previousGeneratedImagePath: string | null = null;
+
+        // Load Character Reference if provided
+        if (request.characterImage) {
+            const charRes = FileHandler.findInputFile(request.characterImage);
+            if (charRes.found) {
+                 try {
+                     const b64 = await FileHandler.readImageAsBase64(charRes.filePath!);
+                     characterReference = { data: b64, mimeType: 'image/png' };
+                     console.error(`DEBUG - Loaded character reference: ${request.characterImage}`);
+                 } catch (e) {
+                     console.error(`DEBUG - Failed to load character reference:`, e);
+                 }
+            }
+        }
+
+        for (const filePath of dirResult.files) {
+             console.error(`DEBUG - Processing file: ${filePath}`);
+             try {
+                const imageBase64 = await FileHandler.readImageAsBase64(filePath);
+                
+                let editPrompt = `${request.prompt}. Maintain the original composition and content structure while applying the requested style and details.`;
+                
+                if (characterReference) {
+                    editPrompt += " Use the attached character reference image to strictly maintain consistent character colors (e.g., hair, clothes, eyes) and design.";
+                }
+
+                if (previousGeneratedImagePath) {
+                    editPrompt += " Ensure the visual style and color grading matches the immediately preceding page (also attached) for continuity.";
+                }
+
+                const parts: any[] = [
+                    { text: editPrompt },
+                    { inlineData: { data: imageBase64, mimeType: 'image/png' } },
+                ];
+
+                // Attach references
+                if (characterReference) {
+                    parts.push({ inlineData: characterReference });
+                }
+
+                // Attach previous generated image for continuity
+                if (previousGeneratedImagePath) {
+                     try {
+                        const prevB64 = await FileHandler.readImageAsBase64(previousGeneratedImagePath);
+                        parts.push({ inlineData: { data: prevB64, mimeType: 'image/png' } });
+                     } catch (e) {
+                         console.error(`DEBUG - Failed to load previous generated image for ref:`, e);
+                     }
+                }
+                
+                const response = await this.ai.models.generateContent({
+                    model: this.modelName,
+                    contents: [
+                      {
+                        role: 'user',
+                        parts: parts,
+                      },
+                    ],
+                  });
+
+                  if (response.candidates && response.candidates[0]?.content?.parts) {
+                    for (const part of response.candidates[0].content.parts) {
+                        let resultImageBase64: string | undefined;
+                        if (part.inlineData?.data) {
+                            resultImageBase64 = part.inlineData.data;
+                        } else if (part.text && this.isValidBase64ImageData(part.text)) {
+                            resultImageBase64 = part.text;
+                        }
+
+                        if (resultImageBase64) {
+                            // Use original filename as base
+                            const originalName = filePath.split(/[/\\]/).pop()?.split('.')[0] || 'image';
+                            const filename = FileHandler.generateFilename(
+                                `manga_edit_${originalName}`,
+                                'png',
+                                0,
+                            );
+                            const fullPath = await FileHandler.saveImageFromBase64(
+                                resultImageBase64,
+                                FileHandler.ensureOutputDirectory(),
+                                filename,
+                            );
+                            generatedFiles.push(fullPath);
+                            previousGeneratedImagePath = fullPath; // Set for next iteration
+                            console.error(`DEBUG - Saved: ${fullPath}`);
+                            break; 
+                        }
+                    }
+                  }
+             } catch (e) {
+                 const msg = `Failed to process ${filePath}: ${e instanceof Error ? e.message : String(e)}`;
+                 console.error(msg);
+                 errors.push(msg);
+             }
+        }
+
+        if (generatedFiles.length > 0) {
+            await this.handlePreview(generatedFiles, request);
+            return {
+                success: true,
+                message: `Successfully processed ${generatedFiles.length} images from directory.`,
+                generatedFiles,
+            };
+        } else {
+            return {
+                success: false,
+                message: 'Failed to process any images in directory.',
+                error: errors.join('\n'),
+            };
+        }
+      }
+
+      // Handle Image Editing Mode (if inputImage is provided)
+      if (request.inputImage) {
+        console.error(`DEBUG - Manga Edit Mode: Processing ${request.inputImage}`);
+        
+        const fileResult = FileHandler.findInputFile(request.inputImage);
+        if (!fileResult.found) {
+          return {
+            success: false,
+            message: `Input image not found: ${request.inputImage}`,
+            error: `Searched in: ${fileResult.searchedPaths.join(', ')}`,
+          };
+        }
+
+        const outputPath = FileHandler.ensureOutputDirectory();
+        const imageBase64 = await FileHandler.readImageAsBase64(fileResult.filePath!);
+
+        // Construct a specialized prompt for editing if needed, or use the one from request
+        // The request.prompt is already built by buildMangaPrompt with style/layout info
+        const editPrompt = `${request.prompt}. Maintain the original composition and content structure while applying the requested style and details.`;
+
+        try {
+          const response = await this.ai.models.generateContent({
+            model: this.modelName,
+            contents: [
+              {
+                role: 'user',
+                parts: [
+                  { text: editPrompt },
+                  {
+                    inlineData: {
+                      data: imageBase64,
+                      mimeType: 'image/png',
+                    },
+                  },
+                ],
+              },
+            ],
+          });
+
+          if (response.candidates && response.candidates[0]?.content?.parts) {
+            for (const part of response.candidates[0].content.parts) {
+              let resultImageBase64: string | undefined;
+
+              if (part.inlineData?.data) {
+                resultImageBase64 = part.inlineData.data;
+              } else if (part.text && this.isValidBase64ImageData(part.text)) {
+                resultImageBase64 = part.text;
+              }
+
+              if (resultImageBase64) {
+                const filename = FileHandler.generateFilename(
+                  `manga_edit_${request.prompt}`,
+                  'png',
+                  0,
+                );
+                const fullPath = await FileHandler.saveImageFromBase64(
+                  resultImageBase64,
+                  outputPath,
+                  filename,
+                );
+                console.error('DEBUG - Edited manga page saved to:', fullPath);
+                
+                await this.handlePreview([fullPath], request);
+
+                return {
+                  success: true,
+                  message: `Successfully edited manga page`,
+                  generatedFiles: [fullPath],
+                };
+              }
+            }
+          }
+          return {
+              success: false,
+              message: 'Failed to generate edited manga image',
+              error: 'No image data in response',
+          };
+
+        } catch (error: unknown) {
+           return {
+            success: false,
+            message: 'Failed to edit manga page',
+            error: this.handleApiError(error),
+          };
+        }
+      }
+
+      // Existing Story Generation Logic
       if (!request.storyFile) {
         return {
           success: false,
-          message: 'Story file is required for manga generation',
+          message: 'Story file is required for manga generation (unless --image is provided)',
           error: 'Missing storyFile parameter',
         };
       }

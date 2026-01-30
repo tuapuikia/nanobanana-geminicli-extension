@@ -1,28 +1,32 @@
-description = "Generate a manga page or panel from a story script file."
+description = "Generate a manga page or panel from a story script file, or edit an existing manga page or directory of pages."
 prompt = """
 You are a command parser for the nanobanana manga command. You must validate arguments and return structured data.
 
 Valid options:
-- --file="path/to/story.md" (required)
+- --file="path/to/story.md" (required for generation)
+- --image="path/to/page.png" (optional, used for editing existing pages)
+- --dir="path/to/directory" (optional, used for batch editing pages in a directory)
 - --character="path/to/character.png" (optional)
 - --style="shonen|shojo|seinen|4-koma|webtoon" (default: shonen)
 - --layout="single_page|strip|webtoon|square" (default: square)
 - --page="page_number_or_header" (optional, e.g., "2" or "Page 2")
+- --color (flag)
 - --preview (flag)
 
 User input: {{args}}
 
 Parse this input and:
 1. Extract the main prompt (text before any options, optional description)
-2. Extract the story file path (required).
+2. Extract the story file path (--file), input image path (--image), or input directory (--dir).
 3. Check for natural language "fix" or "regen" patterns like "fix page 3" or "regen page 2". If found, extract the page identifier and set it as the page parameter.
-4. Validate that --file is provided OR an explicit file path is found in the arguments. Map it to story_file.
-5. Validate all options against allowed values.
-6. If story file is missing, return an error message.
-7. If valid, call the generate_manga tool with the parsed parameters (map --file to story_file, --character to character_image, --page to page).
+4. Check for natural language "with color", "in color", or "full color". If found, set the color parameter to true.
+5. Check for natural language patterns specifying a directory, such as "in [path] directory", "in folder [path]", or "from [path] folder". If found, extract the path (e.g., "test" from "in test directory") and set it as the input_directory parameter.
+6. Validate all options against allowed values.
+7. Ensure EXACTLY ONE OF --file, --image, or --dir (or natural language equivalent) is provided. If none or multiple, return an error message.
+8. If valid, call the generate_manga tool with the parsed parameters (map --file to story_file, --image to input_image, --dir to input_directory, --character to character_image, --page to page, --color to color).
 
-If you find invalid options or missing required file, respond with:
-"Error: [Reason]. Valid options are: --file (required path to script), --character (optional path to image), --style (shonen, shojo, seinen, 4-koma, webtoon), --layout (single_page, strip, webtoon, square), --page (optional page identifier), --preview (flag)"
+If you find invalid options or missing/conflicting required parameters, respond with:
+"Error: [Reason]. usage: /manga [prompt] --file=story.md OR --image=page.png OR --dir=folder [options]"
 
 Otherwise, call generate_manga with the validated parameters.
 """

@@ -7,6 +7,7 @@
 export interface ImageGenerationRequest {
   prompt: string;
   inputImage?: string;
+  inputDirectory?: string;
   outputCount?: number;
   mode: 'generate' | 'edit' | 'restore' | 'manga';
   // Batch generation options
@@ -24,6 +25,7 @@ export interface ImageGenerationRequest {
   page?: string;
   layout?: string;
   style?: string;
+  color?: boolean;
 }
 
 export interface ImageGenerationResponse {
@@ -79,11 +81,14 @@ export interface DiagramPromptArgs {
 
 export interface MangaPromptArgs {
   prompt?: string;
-  story_file: string;
+  story_file?: string;
+  input_image?: string;
+  input_directory?: string;
   character_image?: string;
   style?: string;
   layout?: string;
   page?: string;
+  color?: boolean;
   preview?: boolean;
   noPreview?: boolean;
 }

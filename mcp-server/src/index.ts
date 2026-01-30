@@ -413,6 +413,14 @@ class NanoBananaServer {
                   type: 'string',
                   description: 'Path to the markdown/text file containing the story script',
                 },
+                input_image: {
+                  type: 'string',
+                  description: 'Path to an existing manga page or image to edit/colorize',
+                },
+                input_directory: {
+                  type: 'string',
+                  description: 'Path to a directory containing images to edit/colorize',
+                },
                 character_image: {
                   type: 'string',
                   description: 'Path to an image of the main character to ensure consistency',
@@ -433,6 +441,11 @@ class NanoBananaServer {
                   type: 'string',
                   description: 'Specific page number or header to generate (e.g., "2", "Page 2")',
                 },
+                color: {
+                  type: 'boolean',
+                  description: 'Generate in full color instead of black and white',
+                  default: false,
+                },
                 preview: {
                   type: 'boolean',
                   description:
@@ -440,7 +453,7 @@ class NanoBananaServer {
                   default: false,
                 },
               },
-              required: ['story_file'],
+              required: [],
             },
           },
         ],
@@ -573,12 +586,15 @@ class NanoBananaServer {
             const mangaRequest: ImageGenerationRequest = {
               prompt: this.buildMangaPrompt(args as any),
               storyFile: args?.story_file as string,
+              inputImage: args?.input_image as string,
+              inputDirectory: args?.input_directory as string,
               characterImage: args?.character_image as string,
               mode: 'manga',
               outputCount: 1,
               page: args?.page as string,
               layout: args?.layout as string,
               style: args?.style as string,
+              color: args?.color as boolean,
               preview: args?.preview as boolean,
               noPreview:
                 (args?.noPreview as boolean) ||
@@ -676,12 +692,21 @@ class NanoBananaServer {
     const basePrompt = args?.prompt || 'Manga page';
     const style = args?.style || 'shonen';
     const layout = args?.layout || 'single_page';
+    const isColor = args?.color || false;
 
     let prompt = `${basePrompt}, ${style} manga style, ${layout} layout`;
-    prompt += ', professional manga art, high quality, detailed ink work, screentones';
+    prompt += ', professional manga art, high quality, detailed ink work';
+
+    if (!isColor) {
+      prompt += ', screentones';
+    }
 
     if (layout === 'webtoon') {
-      prompt += ', vertical scrolling format, full color';
+      prompt += ', vertical scrolling format';
+    }
+
+    if (isColor || layout === 'webtoon') {
+      prompt += ', full color';
     } else {
       prompt += ', black and white, traditional manga format';
     }
