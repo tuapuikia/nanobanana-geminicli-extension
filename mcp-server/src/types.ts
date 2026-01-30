@@ -22,6 +22,8 @@ export interface ImageGenerationRequest {
   storyFile?: string;
   characterImage?: string;
   page?: string;
+  layout?: string;
+  style?: string;
 }
 
 export interface ImageGenerationResponse {

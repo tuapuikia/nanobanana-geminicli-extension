@@ -425,9 +425,9 @@ class NanoBananaServer {
                 },
                 layout: {
                   type: 'string',
-                  enum: ['single_page', 'strip', 'webtoon'],
+                  enum: ['single_page', 'strip', 'webtoon', 'square'],
                   description: 'Page layout',
-                  default: 'single_page',
+                  default: 'square',
                 },
                 page: {
                   type: 'string',
@@ -577,6 +577,8 @@ class NanoBananaServer {
               mode: 'manga',
               outputCount: 1,
               page: args?.page as string,
+              layout: args?.layout as string,
+              style: args?.style as string,
               preview: args?.preview as boolean,
               noPreview:
                 (args?.noPreview as boolean) ||

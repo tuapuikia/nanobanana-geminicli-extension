@@ -549,6 +549,20 @@ export class ImageGenerator {
     return [...new Set(matches)]; // Return unique paths
   }
 
+  private getAspectRatioInstruction(layout?: string): string {
+    switch (layout) {
+      case 'webtoon':
+        return 'aspect ratio 9:16, vertical orientation';
+      case 'strip':
+        return 'aspect ratio 16:9, landscape orientation';
+      case 'single_page':
+        return 'aspect ratio 3:4, portrait orientation';
+      case 'square':
+      default:
+        return 'aspect ratio 1:1, square format';
+    }
+  }
+
   async generateMangaPage(
     request: ImageGenerationRequest,
   ): Promise<ImageGenerationResponse> {
@@ -560,6 +574,9 @@ export class ImageGenerator {
           error: 'Missing storyFile parameter',
         };
       }
+
+      const ratioInstruction = this.getAspectRatioInstruction(request.layout);
+      console.error(`DEBUG - Adding aspect ratio instruction: ${ratioInstruction}`);
 
       // Read story file
       const storyFileResult = FileHandler.findInputFile(request.storyFile);
@@ -699,7 +716,7 @@ export class ImageGenerator {
         }
 
         // Construct Prompt
-        let fullPrompt = `${request.prompt}\n\n[GLOBAL CONTEXT]\n${globalContext}\n\n[CURRENT PAGE: ${page.header}]\n${page.content}`;
+        let fullPrompt = `${request.prompt}, ${ratioInstruction}\n\n[GLOBAL CONTEXT]\n${globalContext}\n\n[CURRENT PAGE: ${page.header}]\n${page.content}`;
         
         // Prepare Message Parts
         const parts: any[] = [{ text: fullPrompt }];

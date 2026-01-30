@@ -6,7 +6,7 @@ Valid options:
 - --file="path/to/story.md" (required)
 - --character="path/to/character.png" (optional)
 - --style="shonen|shojo|seinen|4-koma|webtoon" (default: shonen)
-- --layout="single_page|strip|webtoon" (default: single_page)
+- --layout="single_page|strip|webtoon|square" (default: square)
 - --page="page_number_or_header" (optional, e.g., "2" or "Page 2")
 - --preview (flag)
 
@@ -22,7 +22,7 @@ Parse this input and:
 7. If valid, call the generate_manga tool with the parsed parameters (map --file to story_file, --character to character_image, --page to page).
 
 If you find invalid options or missing required file, respond with:
-"Error: [Reason]. Valid options are: --file (required path to script), --character (optional path to image), --style (shonen, shojo, seinen, 4-koma, webtoon), --layout (single_page, strip, webtoon), --page (optional page identifier), --preview (flag)"
+"Error: [Reason]. Valid options are: --file (required path to script), --character (optional path to image), --style (shonen, shojo, seinen, 4-koma, webtoon), --layout (single_page, strip, webtoon, square), --page (optional page identifier), --preview (flag)"
 
 Otherwise, call generate_manga with the validated parameters.
 """
