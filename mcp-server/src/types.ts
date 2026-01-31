@@ -24,6 +24,7 @@ export interface ImageGenerationRequest {
   characterImage?: string;
   referencePage?: string;
   page?: string;
+  startPage?: string;
   layout?: string;
   style?: string;
   color?: boolean;
@@ -90,6 +91,7 @@ export interface MangaPromptArgs {
   style?: string;
   layout?: string;
   page?: string;
+  from_page?: string;
   color?: boolean;
   preview?: boolean;
   noPreview?: boolean;

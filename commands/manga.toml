@@ -10,6 +10,7 @@ Valid options:
 - --style="shonen|shojo|seinen|4-koma|webtoon" (default: shonen)
 - --layout="single_page|strip|webtoon|square" (default: square)
 - --page="page_number_or_header" (optional, e.g., "2" or "Page 2")
+- --from-page="page_number_or_header" (optional, e.g., "3", starts generation from this page to the end)
 - --color (flag)
 - --preview (flag)
 
@@ -19,13 +20,14 @@ Parse this input and:
 1. Extract the main prompt (text before any options, optional description)
 2. Extract the story file path (--file), input image path (--image), or input directory (--dir).
 3. Check for natural language patterns specifying a specific page or pages, such as "page 3", "pages 1, 2", "page 1 and 3", "fix page 3", or "regen page 2". If found, extract the page identifiers (e.g., "3", "1, 2", "1, 3") and set it as the page parameter. Ensure this is extracted even if other options like "with color" are present.
-4. Check for natural language patterns specifying a reference page, such as "with page 5 as reference", "using page 5 as reference", "reference page 5", or "ref page 5". If found, extract the reference page identifier (e.g., "5") and set it as the reference_page parameter.
-5. Check for natural language "with color", "in color", "full color", or "colored". If found, set the color parameter to true.
-6. Check for natural language patterns specifying a directory, such as "in [path] directory", "in folder [path]", or "from [path] folder". If found, extract the path (e.g., "test" from "in test directory") and set it as the input_directory parameter.
-7. Validate all options against allowed values.
-8. Ensure EXACTLY ONE OF --file, --image, or --dir (or natural language equivalent) is provided. If none or multiple, return an error message.
-9. If valid, call the generate_manga tool with the parsed parameters (map --file to story_file, --image to input_image, --dir to input_directory, --character to character_image, --page to page, --color to color, --reference_page to reference_page).
-10. Ensure you generate ONLY ONE tool call. Do not generate multiple calls for the same request.
+4. Check for natural language patterns specifying a starting page, such as "start from page 3", "starting at page 3", "from page 3", "begin at page 3". If found, extract the page identifier (e.g., "3") and set it as the from_page parameter.
+5. Check for natural language patterns specifying a reference page, such as "with page 5 as reference", "using page 5 as reference", "reference page 5", or "ref page 5". If found, extract the reference page identifier (e.g., "5") and set it as the reference_page parameter.
+6. Check for natural language "with color", "in color", "full color", or "colored". If found, set the color parameter to true.
+7. Check for natural language patterns specifying a directory, such as "in [path] directory", "in folder [path]", or "from [path] folder". If found, extract the path (e.g., "test" from "in test directory") and set it as the input_directory parameter.
+8. Validate all options against allowed values.
+9. Ensure EXACTLY ONE OF --file, --image, or --dir (or natural language equivalent) is provided. If none or multiple, return an error message.
+10. If valid, call the generate_manga tool with the parsed parameters (map --file to story_file, --image to input_image, --dir to input_directory, --character to character_image, --page to page, --from-page to from_page, --color to color, --reference_page to reference_page).
+11. Ensure you generate ONLY ONE tool call. Do not generate multiple calls for the same request.
 
 If you find invalid options or missing/conflicting required parameters, respond with:
 "Error: [Reason]. usage: /manga [prompt] --file=story.md OR --image=page.png OR --dir=folder [options]"

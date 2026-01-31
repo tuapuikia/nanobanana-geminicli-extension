@@ -956,6 +956,32 @@ export class ImageGenerator {
         console.error(
           `DEBUG - Filtering for pages "${request.page}". Found ${pagesToProcess.length} match(es).`,
         );
+      } else if (request.startPage) {
+        const target = request.startPage.trim().toLowerCase();
+        const isTargetNumeric = /^\d+$/.test(target);
+
+        const startIndex = pages.findIndex((p) => {
+          const headerLower = p.header.toLowerCase();
+          const headerNumbers = headerLower.match(/\d+/g) || [];
+          if (isTargetNumeric) {
+            return headerNumbers.some((n) => n === target);
+          } else {
+            return headerLower.includes(target);
+          }
+        });
+
+        if (startIndex !== -1) {
+          pagesToProcess = pages.slice(startIndex);
+          console.error(
+            `DEBUG - Starting generation from "${request.startPage}" (index ${startIndex}). Processing ${pagesToProcess.length} pages.`,
+          );
+        } else {
+          return {
+            success: false,
+            message: `Start page "${request.startPage}" not found in story file.`,
+            error: 'Start page not found',
+          };
+        }
       }
 
       // Iterate through pages

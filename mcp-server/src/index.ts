@@ -445,6 +445,10 @@ class NanoBananaServer {
                   type: 'string',
                   description: 'Specific page number or header to generate (e.g., "2", "Page 2")',
                 },
+                from_page: {
+                  type: 'string',
+                  description: 'Start generation from this page number/header until the end (e.g., "3")',
+                },
                 color: {
                   type: 'boolean',
                   description: 'Generate in full color instead of black and white',
@@ -597,6 +601,7 @@ class NanoBananaServer {
               mode: 'manga',
               outputCount: 1,
               page: args?.page as string,
+              startPage: args?.from_page as string,
               layout: args?.layout as string,
               style: args?.style as string,
               color: args?.color as boolean,
