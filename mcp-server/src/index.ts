@@ -454,6 +454,11 @@ class NanoBananaServer {
                   description: 'Generate in full color instead of black and white',
                   default: false,
                 },
+                create_character: {
+                  type: 'boolean',
+                  description: 'Mode: Create character sheet from input image',
+                  default: false,
+                },
                 preview: {
                   type: 'boolean',
                   description:
@@ -605,6 +610,7 @@ class NanoBananaServer {
               layout: args?.layout as string,
               style: args?.style as string,
               color: args?.color as boolean,
+              createCharacter: args?.create_character as boolean,
               preview: args?.preview as boolean,
               noPreview:
                 (args?.noPreview as boolean) ||

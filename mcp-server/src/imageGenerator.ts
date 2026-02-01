@@ -582,6 +582,146 @@ export class ImageGenerator {
     request: ImageGenerationRequest,
   ): Promise<ImageGenerationResponse> {
     try {
+      // Handle Character Creation Mode
+      if (request.createCharacter) {
+         if (!request.inputImage || !request.storyFile) {
+             return {
+                 success: false,
+                 message: 'Character creation requires both --image (source photo) and --file (story context/location).',
+                 error: 'Missing inputImage or storyFile',
+             };
+         }
+
+         console.error(`DEBUG - Character Creation Mode: Converting ${request.inputImage} for ${request.storyFile}`);
+         
+         const sourceFileRes = FileHandler.findInputFile(request.inputImage);
+         if (!sourceFileRes.found) {
+             return { success: false, message: `Source image not found: ${request.inputImage}` };
+         }
+         
+         const storyFileRes = FileHandler.findInputFile(request.storyFile);
+         // If story file doesn't exist, we can use current dir, but let's try to respect the path if provided as a location anchor
+         const storyDir = storyFileRes.found ? path.dirname(storyFileRes.filePath!) : path.dirname(path.resolve(request.storyFile));
+         const charsDir = path.join(storyDir, 'characters');
+         FileHandler.ensureDirectory(charsDir);
+
+         const sourceName = path.basename(request.inputImage, path.extname(request.inputImage));
+         const safeName = sourceName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+         
+         const bwFilename = `${safeName}.png`;
+         const colorFilename = `${safeName}_color.png`;
+         
+         const sourceB64 = await FileHandler.readImageAsBase64(sourceFileRes.filePath!);
+         const generatedFiles: string[] = [];
+
+         // Look for character description in story file
+         let characterDescription = '';
+         if (storyFileRes.found) {
+             try {
+                const storyText = await FileHandler.readTextFile(storyFileRes.filePath!);
+                const escapedName = sourceName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const descRegex = new RegExp(`(?:^|\\n)\\s*[\\*\\-]?\\s*\\*?\\*?${escapedName}\\*?\\*?(?::)?\\s*([^*\\n]+)`, 'i');
+                const match = storyText.match(descRegex);
+                if (match) {
+                    characterDescription = match[1].trim();
+                    console.error(`DEBUG - Found description for ${sourceName}: ${characterDescription}`);
+                }
+             } catch (e) {
+                 console.error(`DEBUG - Failed to read/parse story file for description:`, e);
+             }
+         }
+
+         // 1. Generate B&W Sheet
+         console.error(`DEBUG - Generating B&W Character Sheet for ${safeName}...`);
+         const bwPrompt = `Character Design Sheet: ${sourceName}.
+         Create a full body character design sheet based on the attached reference photo.
+         ${characterDescription ? `Character Description from Story: "${characterDescription}". Ensure these traits are reflected.` : ''}
+         Include the following views: Front view, Left profile view, Right profile view, and Back view.
+         Capture the facial features, hairstyle, and clothing details from the photo accurately but stylized.
+         ${request.style || 'shonen'} manga style, black and white, screentones, high quality line art.
+         Full body, neutral pose, white background.`;
+
+         try {
+            const bwResponse = await this.ai.models.generateContent({
+                model: this.modelName,
+                contents: [{ role: 'user', parts: [
+                    { text: bwPrompt },
+                    { inlineData: { data: sourceB64, mimeType: 'image/png' } }
+                ] }],
+            });
+
+            if (bwResponse.candidates && bwResponse.candidates[0]?.content?.parts) {
+                for (const part of bwResponse.candidates[0].content.parts) {
+                    let b64: string | undefined;
+                    if (part.inlineData?.data) b64 = part.inlineData.data;
+                    else if (part.text && this.isValidBase64ImageData(part.text)) b64 = part.text;
+
+                    if (b64) {
+                        const fullPath = await FileHandler.saveImageFromBase64(b64, charsDir, bwFilename);
+                        generatedFiles.push(fullPath);
+                        console.error(`DEBUG - Saved B&W Sheet: ${fullPath}`);
+                        break;
+                    }
+                }
+            }
+         } catch (e) {
+             console.error(`DEBUG - Failed to generate B&W sheet:`, e);
+         }
+
+         // 2. Generate Color Sheet
+         console.error(`DEBUG - Generating Color Character Sheet for ${safeName}...`);
+         const colorPrompt = `Character Design Sheet: ${sourceName}.
+         Create a full body character design sheet based on the attached reference photo.
+         ${characterDescription ? `Character Description from Story: "${characterDescription}". Ensure these traits are reflected.` : ''}
+         Include the following views: Front view, Left profile view, Right profile view, and Back view.
+         Capture the facial features, hairstyle, and clothing details from the photo accurately.
+         GENERATE IN FULL COLOR. Vibrant colors, detailed shading.
+         Anime/Manga style.
+         Full body, neutral pose, white background.`;
+
+         try {
+            const colorResponse = await this.ai.models.generateContent({
+                model: this.modelName,
+                contents: [{ role: 'user', parts: [
+                    { text: colorPrompt },
+                    { inlineData: { data: sourceB64, mimeType: 'image/png' } }
+                ] }],
+            });
+
+            if (colorResponse.candidates && colorResponse.candidates[0]?.content?.parts) {
+                for (const part of colorResponse.candidates[0].content.parts) {
+                    let b64: string | undefined;
+                    if (part.inlineData?.data) b64 = part.inlineData.data;
+                    else if (part.text && this.isValidBase64ImageData(part.text)) b64 = part.text;
+
+                    if (b64) {
+                        const fullPath = await FileHandler.saveImageFromBase64(b64, charsDir, colorFilename);
+                        generatedFiles.push(fullPath);
+                        console.error(`DEBUG - Saved Color Sheet: ${fullPath}`);
+                        break;
+                    }
+                }
+            }
+         } catch (e) {
+             console.error(`DEBUG - Failed to generate Color sheet:`, e);
+         }
+
+         if (generatedFiles.length > 0) {
+             await this.handlePreview(generatedFiles, request);
+             return {
+                 success: true,
+                 message: `Successfully created character sheets for ${sourceName} in ${charsDir}`,
+                 generatedFiles
+             };
+         } else {
+             return {
+                 success: false,
+                 message: 'Failed to generate character sheets.',
+                 error: 'No images generated.'
+             };
+         }
+      }
+
       // Handle Directory Batch Processing
       if (request.inputDirectory) {
         console.error(`DEBUG - Manga Directory Mode: Processing ${request.inputDirectory}`);
@@ -953,17 +1093,37 @@ export class ImageGenerator {
                          sourceBwImageBase64 = await FileHandler.readImageAsBase64(bwRes.filePath!);
                      } catch (e) { console.error(`DEBUG - Failed to read existing B&W ref:`, e); }
                 } else {
+                     // NEW: Check for Source Image in Description
+                     const sourceImagePaths = this.extractImagePaths(charDesc);
+                     let sourceImageB64: string | undefined = undefined;
+                     
+                     if (sourceImagePaths.length > 0) {
+                        const sourceRes = FileHandler.findInputFile(sourceImagePaths[0]);
+                        if (sourceRes.found) {
+                            try {
+                                sourceImageB64 = await FileHandler.readImageAsBase64(sourceRes.filePath!);
+                                console.error(`DEBUG - Found source image for ${charName}: ${sourceRes.filePath}`);
+                            } catch(e) { console.error(`DEBUG - Failed to read source image:`, e); }
+                        }
+                     }
+
                      console.error(`DEBUG - Generating BASE B&W ref for ${charName}...`);
                      const bwPrompt = `Character Design Sheet: ${charName}. ${charDesc}. 
                      Include the following views: Front view, Left profile view, Right profile view, and Back view.
                      Ensure the character appeal and details strictly follow the guidelines provided in the user story file description.
+                     ${sourceImageB64 ? 'Use the attached image as the visual source for the character\'s appearance.' : ''}
                      ${request.style || 'shonen'} manga style, black and white, screentones.
                      Full body, neutral pose, white background.`;
                      
+                     const bwParts: any[] = [{ text: bwPrompt }];
+                     if (sourceImageB64) {
+                        bwParts.push({ inlineData: { data: sourceImageB64, mimeType: 'image/png' } });
+                     }
+
                      try {
                         const bwResponse = await this.ai.models.generateContent({
                             model: this.modelName,
-                            contents: [{ role: 'user', parts: [{ text: bwPrompt }] }],
+                            contents: [{ role: 'user', parts: bwParts }],
                         });
 
                         if (bwResponse.candidates && bwResponse.candidates[0]?.content?.parts) {

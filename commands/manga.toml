@@ -17,20 +17,32 @@ Valid options:
 User input: {{args}}
 
 Parse this input and:
-1. Extract the main prompt (text before any options, optional description)
-2. Extract the story file path (--file), input image path (--image), or input directory (--dir).
+1. Check if the input starts with "character create" or "create character".
+   - If YES:
+     - Extract the first argument as the story file path (e.g., "story.md").
+     - Extract the second argument as the input image path (e.g., "stan.jpg").
+     - Set create_character=true.
+     - Map story file to --file logic (story_file parameter).
+     - Map input image to --image logic (input_image parameter).
+     - Ignore the main prompt extraction logic (prompt can be empty or generic "Create character sheet").
+   - If NO:
+     - Proceed with standard extraction:
+     - Extract the main prompt (text before any options, optional description)
+     - Extract the story file path (--file), input image path (--image), or input directory (--dir).
+
+2. (Standard Logic) Extract the story file path (--file), input image path (--image), or input directory (--dir) if not already extracted.
 3. Check for natural language patterns specifying a specific page or pages, such as "page 3", "pages 1, 2", "page 1 and 3", "fix page 3", or "regen page 2". If found, extract the page identifiers (e.g., "3", "1, 2", "1, 3") and set it as the page parameter. Ensure this is extracted even if other options like "with color" are present.
 4. Check for natural language patterns specifying a starting page, such as "start from page 3", "starting at page 3", "from page 3", "begin at page 3". If found, extract the page identifier (e.g., "3") and set it as the from_page parameter.
 5. Check for natural language patterns specifying a reference page, such as "with page 5 as reference", "using page 5 as reference", "reference page 5", or "ref page 5". If found, extract the reference page identifier (e.g., "5") and set it as the reference_page parameter.
 6. Check for natural language "with color", "in color", "full color", or "colored". If found, set the color parameter to true.
 7. Check for natural language patterns specifying a directory, such as "in [path] directory", "in folder [path]", or "from [path] folder". If found, extract the path (e.g., "test" from "in test directory") and set it as the input_directory parameter.
 8. Validate all options against allowed values.
-9. Ensure EXACTLY ONE OF --file, --image, or --dir (or natural language equivalent) is provided. If none or multiple, return an error message.
-10. If valid, call the generate_manga tool with the parsed parameters (map --file to story_file, --image to input_image, --dir to input_directory, --character to character_image, --page to page, --from-page to from_page, --color to color, --reference_page to reference_page).
+9. Ensure EXACTLY ONE OF --file, --image, --dir, or (create_character mode) is active. If create_character is true, we need story_file and input_image. If standard mode, we need exactly one of the three.
+10. If valid, call the generate_manga tool with the parsed parameters (map --file to story_file, --image to input_image, --dir to input_directory, --character to character_image, --page to page, --from-page to from_page, --color to color, --reference_page to reference_page, create_character to create_character).
 11. Ensure you generate ONLY ONE tool call. Do not generate multiple calls for the same request.
 
 If you find invalid options or missing/conflicting required parameters, respond with:
-"Error: [Reason]. usage: /manga [prompt] --file=story.md OR --image=page.png OR --dir=folder [options]"
+"Error: [Reason]. usage: /manga [prompt] --file=story.md OR /manga character create story.md image.jpg"
 
 Otherwise, call generate_manga with the validated parameters.
 """
