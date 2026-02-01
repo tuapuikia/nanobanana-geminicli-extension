@@ -99,6 +99,42 @@ export class ImageGenerator {
     await Promise.all(previewPromises);
   }
 
+  private async extractCharactersFromStory(storyText: string): Promise<Array<{ name: string; description: string }>> {
+      console.error('DEBUG - Extracting characters using LLM...');
+      const prompt = `Analyze the following story script and extract the main characters. 
+      Return a JSON array where each object has a "name" and a "description" (visual appearance, age, clothing, key features).
+      Only include characters that have some visual description or importance.
+      
+      Story Script:
+      ${storyText.substring(0, 30000)} // Limit context if needed
+      
+      Return ONLY the JSON array.`;
+
+      try {
+          // Use a text model for extraction if possible, or the same model if it supports text-only well.
+          // Since we are using gemini-2.5-flash-image (or similar), it handles text well.
+          const response = await this.ai.models.generateContent({
+              model: this.modelName, // Or use a text-optimized model if available/configured
+              contents: [{ role: 'user', parts: [{ text: prompt }] }],
+              config: {
+                  responseMimeType: 'application/json',
+              } as any,
+          });
+
+          const text = response.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (!text) return [];
+
+          const data = JSON.parse(text);
+          if (Array.isArray(data)) {
+              return data.filter(c => c.name && c.description);
+          }
+          return [];
+      } catch (e) {
+          console.error('DEBUG - Failed to extract characters via LLM:', e);
+          return [];
+      }
+  }
+
   static validateAuthentication(): AuthConfig {
     const nanoGeminiKey = process.env.NANOBANANA_GEMINI_API_KEY;
     if (nanoGeminiKey) {
