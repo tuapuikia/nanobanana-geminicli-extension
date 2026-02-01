@@ -1205,12 +1205,13 @@ export class ImageGenerator {
                          }
 
                          console.error(`DEBUG - Generating BASE B&W ref for ${charName}...`);
-                         const bwPrompt = `Character Portrait: ${charName}. ${charDesc}. 
-                         Generate a high-quality full-body portrait of the character.
+                         const bwPrompt = `Character Design Sheet: ${charName}. ${charDesc}. 
+                         Include the following views: Front view, Left profile view, Right profile view, and Back view. Ensure strict consistency: The Right profile must be the opposite side of the Left profile.
+                         Order them: Front, Left, Right, Back.
                          Ensure the character appeal and details strictly follow the guidelines provided in the user story file description.
                          ${sourceImageB64 ? 'Use the attached image as the visual source for the character\'s appearance.' : ''}
-                         ${request.style || 'shonen'} manga style, black and white, screentones.
-                         Full body, dynamic but neutral pose, white background.`;
+                         ${request.style || 'shonen'} manga style, black and white, screentones, high quality line art.
+                         Full body, neutral pose, white background.`;
                          
                          const bwParts: any[] = [{ text: bwPrompt }];
                          if (sourceImageB64) {
@@ -1251,12 +1252,13 @@ export class ImageGenerator {
                         if (!colorRes.found) {
                             if (request.autoGenerateCharacters) {
                                 console.error(`DEBUG - Generating Color ref for ${charName} (using B&W base)...`);
-                                const colorPrompt = `Character Portrait: ${charName}. ${charDesc}. 
-                                Generate a high-quality full-body portrait of the character.
+                                const colorPrompt = `Character Design Sheet: ${charName}. ${charDesc}. 
+                                Include the following views: Front view, Left profile view, Right profile view, and Back view. Ensure strict consistency: The Right profile must be the opposite side of the Left profile.
+                                Order them: Front, Left, Right, Back.
                                 Ensure the character appeal and details strictly follow the guidelines provided in the user story file description.
                                 GENERATE IN FULL COLOR. Vibrant colors, detailed shading.
                                 Use the attached B&W image as the STRICT reference for line art and design. Colorize it accurately.
-                                Full body, dynamic but neutral pose, white background.`;
+                                Full body, neutral pose, white background.`;
 
                                 try {
                                     const colorResponse = await this.ai.models.generateContent({
@@ -1429,11 +1431,12 @@ export class ImageGenerator {
                          try { sourceBwImageBase64 = await FileHandler.readImageAsBase64(bwRes.filePath!); } catch (e) {}
                     } else if (request.autoGenerateCharacters) {
                          console.error(`DEBUG - Generating BASE B&W ref for ${charName}...`);
-                         const bwPrompt = `Character Portrait: ${charName}. ${charDesc}. 
-                         Generate a high-quality full-body portrait of the character.
+                         const bwPrompt = `Character Design Sheet: ${charName}. ${charDesc}. 
+                         Include the following views: Front view, Left profile view, Right profile view, and Back view. Ensure strict consistency: The Right profile must be the opposite side of the Left profile.
+         Order them: Front, Left, Right, Back.
                          Ensure the character appeal and details strictly follow the guidelines provided in the user story file description.
-                         ${request.style || 'shonen'} manga style, black and white, screentones.
-                         Full body, dynamic but neutral pose, white background.`;
+                         ${request.style || 'shonen'} manga style, black and white, screentones, high quality line art.
+                         Full body, neutral pose, white background.`;
                          
                          try {
                             const bwResponse = await this.ai.models.generateContent({
@@ -1466,10 +1469,11 @@ export class ImageGenerator {
                         if (!colorRes.found) {
                             if (request.autoGenerateCharacters) {
                                 console.error(`DEBUG - Generating Color ref for ${charName}...`);
-                                const colorPrompt = `Character Portrait: ${charName}. ${charDesc}. 
+                                const colorPrompt = `Character Design Sheet: ${charName}. ${charDesc}. 
                                 GENERATE IN FULL COLOR. Vibrant colors, detailed shading.
                                 Use the attached B&W image as the STRICT reference.
-                                Full body, dynamic but neutral pose, white background.`;
+                                Include the following views: Front view, Left profile view, Right profile view, and Back view.
+                                Full body, neutral pose, white background.`;
 
                                 try {
                                     const colorResponse = await this.ai.models.generateContent({
