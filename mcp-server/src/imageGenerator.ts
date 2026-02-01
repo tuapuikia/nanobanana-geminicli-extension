@@ -99,59 +99,7 @@ export class ImageGenerator {
     await Promise.all(previewPromises);
   }
 
-  private async extractCharactersFromStory(storyText: string): Promise<Array<{ name: string; description: string }>> {
-      console.error('DEBUG - Extracting characters using LLM...');
-      const prompt = `Analyze the following story script and extract the main characters. 
-      Return a JSON array where each object has a "name" and a "description" (visual appearance, age, clothing, key features).
-      Only include characters that have some visual description or importance.
-      
-      Story Script:
-      ${storyText.substring(0, 30000)} // Limit context if needed
-      
-      Return ONLY the JSON array.`;
 
-      try {
-          // Use a text model for extraction if possible, or the same model if it supports text-only well.
-          // Since we are using gemini-2.5-flash-image (or similar), it handles text well.
-          const response = await this.ai.models.generateContent({
-              model: this.modelName, // Or use a text-optimized model if available/configured
-              contents: [{ role: 'user', parts: [{ text: prompt }] }],
-              config: {
-                  responseMimeType: 'application/json',
-              } as any,
-          });
-
-          const text = response.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (!text) {
-             console.error('DEBUG - No text returned from character extraction.');
-             return [];
-          }
-          
-          let cleanText = text.trim();
-          // Remove markdown code blocks if present
-          if (cleanText.startsWith('```json')) {
-              cleanText = cleanText.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-          } else if (cleanText.startsWith('```')) {
-              cleanText = cleanText.replace(/^```\s*/, '').replace(/\s*```$/, '');
-          }
-
-          try {
-              const data = JSON.parse(cleanText);
-              if (Array.isArray(data)) {
-                  const valid = data.filter(c => c.name && c.description);
-                  console.error(`DEBUG - Successfully parsed ${valid.length} characters from JSON.`);
-                  return valid;
-              }
-          } catch (jsonErr) {
-              console.error('DEBUG - Failed to parse JSON from extraction response:', jsonErr);
-              console.error('DEBUG - Raw text was:', text);
-          }
-          return [];
-      } catch (e) {
-          console.error('DEBUG - Failed to extract characters via LLM:', e);
-          return [];
-      }
-  }
 
   static validateAuthentication(): AuthConfig {
     const nanoGeminiKey = process.env.NANOBANANA_GEMINI_API_KEY;
@@ -1257,13 +1205,12 @@ export class ImageGenerator {
                          }
 
                          console.error(`DEBUG - Generating BASE B&W ref for ${charName}...`);
-                         const bwPrompt = `Character Design Sheet: ${charName}. ${charDesc}. 
-                         Include the following views: Front view, Left profile view, Right profile view, and Back view. Ensure strict consistency: The Right profile must be the opposite side of the Left profile.
-             Order them: Front, Left, Right, Back.
+                         const bwPrompt = `Character Portrait: ${charName}. ${charDesc}. 
+                         Generate a high-quality full-body portrait of the character.
                          Ensure the character appeal and details strictly follow the guidelines provided in the user story file description.
                          ${sourceImageB64 ? 'Use the attached image as the visual source for the character\'s appearance.' : ''}
                          ${request.style || 'shonen'} manga style, black and white, screentones.
-                         Full body, neutral pose, white background.`;
+                         Full body, dynamic but neutral pose, white background.`;
                          
                          const bwParts: any[] = [{ text: bwPrompt }];
                          if (sourceImageB64) {
@@ -1304,13 +1251,12 @@ export class ImageGenerator {
                         if (!colorRes.found) {
                             if (request.autoGenerateCharacters) {
                                 console.error(`DEBUG - Generating Color ref for ${charName} (using B&W base)...`);
-                                const colorPrompt = `Character Design Sheet: ${charName}. ${charDesc}. 
-                                Include the following views: Front view, Left profile view, Right profile view, and Back view. Ensure strict consistency: The Right profile must be the opposite side of the Left profile.
-             Order them: Front, Left, Right, Back.
+                                const colorPrompt = `Character Portrait: ${charName}. ${charDesc}. 
+                                Generate a high-quality full-body portrait of the character.
                                 Ensure the character appeal and details strictly follow the guidelines provided in the user story file description.
                                 GENERATE IN FULL COLOR. Vibrant colors, detailed shading.
-                                Use the attached B&W character sheet as the STRICT reference for line art and design. Colorize it accurately.
-                                Full body, neutral pose, white background.`;
+                                Use the attached B&W image as the STRICT reference for line art and design. Colorize it accurately.
+                                Full body, dynamic but neutral pose, white background.`;
 
                                 try {
                                     const colorResponse = await this.ai.models.generateContent({
@@ -1483,12 +1429,11 @@ export class ImageGenerator {
                          try { sourceBwImageBase64 = await FileHandler.readImageAsBase64(bwRes.filePath!); } catch (e) {}
                     } else if (request.autoGenerateCharacters) {
                          console.error(`DEBUG - Generating BASE B&W ref for ${charName}...`);
-                         const bwPrompt = `Character Design Sheet: ${charName}. ${charDesc}. 
-                         Include the following views: Front view, Left profile view, Right profile view, and Back view. Ensure strict consistency: The Right profile must be the opposite side of the Left profile.
-         Order them: Front, Left, Right, Back.
+                         const bwPrompt = `Character Portrait: ${charName}. ${charDesc}. 
+                         Generate a high-quality full-body portrait of the character.
                          Ensure the character appeal and details strictly follow the guidelines provided in the user story file description.
                          ${request.style || 'shonen'} manga style, black and white, screentones.
-                         Full body, neutral pose, white background.`;
+                         Full body, dynamic but neutral pose, white background.`;
                          
                          try {
                             const bwResponse = await this.ai.models.generateContent({
@@ -1521,10 +1466,10 @@ export class ImageGenerator {
                         if (!colorRes.found) {
                             if (request.autoGenerateCharacters) {
                                 console.error(`DEBUG - Generating Color ref for ${charName}...`);
-                                const colorPrompt = `Character Design Sheet: ${charName}. ${charDesc}. 
+                                const colorPrompt = `Character Portrait: ${charName}. ${charDesc}. 
                                 GENERATE IN FULL COLOR. Vibrant colors, detailed shading.
-                                Use the attached B&W character sheet as the STRICT reference.
-                                Full body, neutral pose, white background.`;
+                                Use the attached B&W image as the STRICT reference.
+                                Full body, dynamic but neutral pose, white background.`;
 
                                 try {
                                     const colorResponse = await this.ai.models.generateContent({
