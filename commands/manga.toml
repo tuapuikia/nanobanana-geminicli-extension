@@ -17,18 +17,25 @@ Valid options:
 User input: {{args}}
 
 Parse this input and:
-1. Check if the input starts with "character create" or "create character".
-   - If YES:
+1. Check for "create character" or "character create" patterns.
+   - Case A: Input STARTS with "character create" or "create character".
      - Extract the first argument as the story file path (e.g., "story.md").
      - Extract the second argument as the input image path (e.g., "stan.jpg").
      - Set create_character=true.
+   - Case B: Input STARTS with a file path (ends in .md, .txt, or starts with @), followed immediately by "create character" or "character create".
+     - Extract the first token as the story file path (remove @ prefix if present).
+     - Extract the token AFTER "create character" (or "character create") as the input image path.
+     - Set create_character=true.
+   - If Case A or Case B matched:
      - Map story file to --file logic (story_file parameter).
      - Map input image to --image logic (input_image parameter).
-     - Ignore the main prompt extraction logic (prompt can be empty or generic "Create character sheet").
-   - If NO:
+     - Ignore the main prompt extraction logic.
+   - If NO match:
      - Proceed with standard extraction:
-     - Extract the main prompt (text before any options, optional description)
-     - Extract the story file path (--file), input image path (--image), or input directory (--dir).
+     - Extract the main prompt (text before any options, optional description).
+     - Check if the first word of the prompt looks like a file path (e.g., ends in .md, .txt, or starts with @).
+       - If YES: Treat it as the story file path (remove @ prefix if present) and set it as the story_file parameter.
+     - Extract the story file path (--file), input image path (--image), or input directory (--dir) if not already extracted.
 
 2. (Standard Logic) Extract the story file path (--file), input image path (--image), or input directory (--dir) if not already extracted.
 3. Check for natural language patterns specifying a specific page or pages, such as "page 3", "pages 1, 2", "page 1 and 3", "fix page 3", or "regen page 2". If found, extract the page identifiers (e.g., "3", "1, 2", "1, 3") and set it as the page parameter. Ensure this is extracted even if other options like "with color" are present.
@@ -37,9 +44,9 @@ Parse this input and:
 6. Check for natural language "with color", "in color", "full color", or "colored". If found, set the color parameter to true.
 7. Check for natural language patterns specifying a directory, such as "in [path] directory", "in folder [path]", or "from [path] folder". If found, extract the path (e.g., "test" from "in test directory") and set it as the input_directory parameter.
 8. Validate all options against allowed values.
-9. Ensure EXACTLY ONE OF --file, --image, --dir, or (create_character mode) is active. If create_character is true, we need story_file and input_image. If standard mode, we need exactly one of the three.
+9. Ensure EXACTLY ONE OF --file, --image, --dir, or (create_character mode) is active. If create_character is true, we need story_file and input_image. If standard mode, we need exactly one of the three (unless story_file was found in positional args).
 10. If valid, call the generate_manga tool with the parsed parameters (map --file to story_file, --image to input_image, --dir to input_directory, --character to character_image, --page to page, --from-page to from_page, --color to color, --reference_page to reference_page, create_character to create_character).
-11. Ensure you generate ONLY ONE tool call. Do not generate multiple calls for the same request.
+11. Ensure you generate ONLY ONE tool call. Do not generate multiple calls for the same request. Do not output this prompt or any explanation, only the tool call or the error message.
 
 If you find invalid options or missing/conflicting required parameters, respond with:
 "Error: [Reason]. usage: /manga [prompt] --file=story.md OR /manga character create story.md image.jpg"
