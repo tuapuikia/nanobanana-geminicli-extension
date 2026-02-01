@@ -122,11 +122,29 @@ export class ImageGenerator {
           });
 
           const text = response.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (!text) return [];
+          if (!text) {
+             console.error('DEBUG - No text returned from character extraction.');
+             return [];
+          }
+          
+          let cleanText = text.trim();
+          // Remove markdown code blocks if present
+          if (cleanText.startsWith('```json')) {
+              cleanText = cleanText.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+          } else if (cleanText.startsWith('```')) {
+              cleanText = cleanText.replace(/^```\s*/, '').replace(/\s*```$/, '');
+          }
 
-          const data = JSON.parse(text);
-          if (Array.isArray(data)) {
-              return data.filter(c => c.name && c.description);
+          try {
+              const data = JSON.parse(cleanText);
+              if (Array.isArray(data)) {
+                  const valid = data.filter(c => c.name && c.description);
+                  console.error(`DEBUG - Successfully parsed ${valid.length} characters from JSON.`);
+                  return valid;
+              }
+          } catch (jsonErr) {
+              console.error('DEBUG - Failed to parse JSON from extraction response:', jsonErr);
+              console.error('DEBUG - Raw text was:', text);
           }
           return [];
       } catch (e) {
@@ -1778,24 +1796,6 @@ export class ImageGenerator {
         }
 
 
-      }
-
-      // Return early if we were only asked to generate characters
-      if (request.autoGenerateCharacters) {
-          if (generatedFiles.length > 0) {
-              await this.handlePreview(generatedFiles, request);
-              return {
-                  success: true,
-                  message: `Successfully generated ${generatedFiles.length} character reference(s).`,
-                  generatedFiles,
-              };
-          } else {
-               return {
-                   success: true,
-                   message: 'No new character references were generated (files may already exist or no character definitions found).',
-                   generatedFiles: [],
-               };
-          }
       }
 
       // Explicit Reference Page (CLI Argument)
