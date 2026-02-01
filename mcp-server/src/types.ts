@@ -29,6 +29,7 @@ export interface ImageGenerationRequest {
   style?: string;
   color?: boolean;
   createCharacter?: boolean;
+  autoGenerateCharacters?: boolean;
 }
 
 export interface ImageGenerationResponse {
@@ -97,4 +98,5 @@ export interface MangaPromptArgs {
   create_character?: boolean;
   preview?: boolean;
   noPreview?: boolean;
+  generate_characters?: boolean;
 }

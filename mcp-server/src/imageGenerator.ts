@@ -1072,6 +1072,48 @@ export class ImageGenerator {
             const charName = charMatch[1].trim();
             const charDesc = charMatch[2].trim();
             
+            // Section Validation: Check if we are inside a "Character" section
+            const matchIndex = charMatch.index;
+            const textBeforeMatch = globalContext.substring(0, matchIndex);
+            // Find the last header (# Header) before this match
+            const lastHeaderMatch = [...textBeforeMatch.matchAll(/^(#{1,6})\s+(.*)$/gm)].pop();
+            
+            if (lastHeaderMatch) {
+                const headerTitle = lastHeaderMatch[2].toLowerCase();
+                // Valid sections must explicitly relate to characters
+                const validSectionKeywords = ['character', 'cast', 'person', 'role', 'protagonist', 'antagonist'];
+                let isValidSection = validSectionKeywords.some(kw => headerTitle.includes(kw));
+                
+                // FALLBACK: If the formal header didn't match (e.g. it was just the Story Title),
+                // check for "Label-style" headers in the text between the header and this match.
+                // Example: "# Title" ...text... "**Characters:**" ... * **Elara:**
+                if (!isValidSection) {
+                    const headerIndex = lastHeaderMatch.index! + lastHeaderMatch[0].length;
+                    const textBetweenHeaderAndMatch = globalContext.substring(headerIndex, matchIndex);
+                    
+                    // Look for lines that look like "Characters:", "**Characters:**", "Cast:"
+                    // We check for the keywords again but in a "label" context
+                    const labelRegex = /(?:^|\n)\s*(?:\*\*|__)?\s*(?:Characters?|Cast|Roles?|Personas?)\s*(?:\*\*|__)?\s*[:\n]/i;
+                    if (labelRegex.test(textBetweenHeaderAndMatch)) {
+                        isValidSection = true;
+                         console.error(`DEBUG - Validated character "${charName}" via text label (e.g. "**Characters:**")`);
+                    }
+                }
+                
+                if (!isValidSection) {
+                    console.error(`DEBUG - Skipping potential character "${charName}" because it is in non-character section: "${lastHeaderMatch[2]}"`);
+                    continue;
+                }
+            } else {
+                // If no header found yet, maybe check if the name itself looks like a rule?
+                // But generally safe to skip if we want strict sectioning.
+                // For now, let's process if no header, but maybe filter ALL CAPS names longer than 2 words?
+                if (charName === charName.toUpperCase() && charName.split(' ').length > 2) {
+                     console.error(`DEBUG - Skipping "${charName}" (looks like a rule/instruction)`);
+                     continue;
+                }
+            }
+
             const safeName = charName.toLowerCase().replace(/[^a-z0-9]/g, '_');
             const charFilename = request.color ? `${safeName}_color.png` : `${safeName}.png`;
             const charRelPath = path.join('characters', charFilename);
@@ -1145,7 +1187,7 @@ export class ImageGenerator {
                          try {
                              sourceBwImageBase64 = await FileHandler.readImageAsBase64(bwRes.filePath!);
                          } catch (e) { console.error(`DEBUG - Failed to read existing B&W ref:`, e); }
-                    } else {
+                    } else if (request.autoGenerateCharacters) {
                          // NEW: Check for Source Image in Description
                          const sourceImagePaths = this.extractImagePaths(charDesc);
                          let sourceImageB64: string | undefined = undefined;
@@ -1197,45 +1239,51 @@ export class ImageGenerator {
                          } catch (e) {
                              console.error(`DEBUG - Failed to generate base B&W character ${charName}:`, e);
                          }
+                    } else {
+                         console.error(`DEBUG - Skipping B&W generation for ${charName} (autoGenerateCharacters=false)`);
                     }
 
                     // Step 2: Handle Color (only if we have a B&W base to work from)
                     if (sourceBwImageBase64) {
                         const colorRes = FileHandler.findInputFile(colorAbsPath);
                         if (!colorRes.found) {
-                            console.error(`DEBUG - Generating Color ref for ${charName} (using B&W base)...`);
-                            const colorPrompt = `Character Design Sheet: ${charName}. ${charDesc}. 
-                            Include the following views: Front view, Left profile view, Right profile view, and Back view. Ensure strict consistency: The Right profile must be the opposite side of the Left profile.
+                            if (request.autoGenerateCharacters) {
+                                console.error(`DEBUG - Generating Color ref for ${charName} (using B&W base)...`);
+                                const colorPrompt = `Character Design Sheet: ${charName}. ${charDesc}. 
+                                Include the following views: Front view, Left profile view, Right profile view, and Back view. Ensure strict consistency: The Right profile must be the opposite side of the Left profile.
              Order them: Front, Left, Right, Back.
-                            Ensure the character appeal and details strictly follow the guidelines provided in the user story file description.
-                            GENERATE IN FULL COLOR. Vibrant colors, detailed shading.
-                            Use the attached B&W character sheet as the STRICT reference for line art and design. Colorize it accurately.
-                            Full body, neutral pose, white background.`;
+                                Ensure the character appeal and details strictly follow the guidelines provided in the user story file description.
+                                GENERATE IN FULL COLOR. Vibrant colors, detailed shading.
+                                Use the attached B&W character sheet as the STRICT reference for line art and design. Colorize it accurately.
+                                Full body, neutral pose, white background.`;
 
-                            try {
-                                const colorResponse = await this.ai.models.generateContent({
-                                    model: this.modelName,
-                                    contents: [{ role: 'user', parts: [
-                                        { text: colorPrompt },
-                                        { inlineData: { data: sourceBwImageBase64, mimeType: 'image/png' } }
-                                    ]}],
-                                });
+                                try {
+                                    const colorResponse = await this.ai.models.generateContent({
+                                        model: this.modelName,
+                                        contents: [{ role: 'user', parts: [
+                                            { text: colorPrompt },
+                                            { inlineData: { data: sourceBwImageBase64, mimeType: 'image/png' } }
+                                        ]}],
+                                    });
 
-                                if (colorResponse.candidates && colorResponse.candidates[0]?.content?.parts) {
-                                    for (const part of colorResponse.candidates[0].content.parts) {
-                                        let b64: string | undefined;
-                                        if (part.inlineData?.data) b64 = part.inlineData.data;
-                                        else if (part.text && this.isValidBase64ImageData(part.text)) b64 = part.text;
+                                    if (colorResponse.candidates && colorResponse.candidates[0]?.content?.parts) {
+                                        for (const part of colorResponse.candidates[0].content.parts) {
+                                            let b64: string | undefined;
+                                            if (part.inlineData?.data) b64 = part.inlineData.data;
+                                            else if (part.text && this.isValidBase64ImageData(part.text)) b64 = part.text;
 
-                                        if (b64) {
-                                            await FileHandler.saveImageFromBase64(b64, charsDir, colorFilename);
-                                            console.error(`DEBUG - Generated Color ${charName}: ${colorAbsPath}`);
-                                            break;
+                                            if (b64) {
+                                                await FileHandler.saveImageFromBase64(b64, charsDir, colorFilename);
+                                                console.error(`DEBUG - Generated Color ${charName}: ${colorAbsPath}`);
+                                                break;
+                                            }
                                         }
                                     }
+                                } catch (e) {
+                                     console.error(`DEBUG - Failed to generate color character ${charName}:`, e);
                                 }
-                            } catch (e) {
-                                 console.error(`DEBUG - Failed to generate color character ${charName}:`, e);
+                            } else {
+                                console.error(`DEBUG - Skipping Color generation for ${charName} (autoGenerateCharacters=false)`);
                             }
                         }
                     }
@@ -1282,6 +1330,33 @@ export class ImageGenerator {
             
             // Skip empty or likely system headers
             if (!charName || charName.toLowerCase() === 'character style' || charName.toLowerCase() === 'characters') continue;
+
+            // Section Validation: Check if we are inside a "Character" section
+            const matchIndex = headerMatch.index;
+            const textBeforeMatch = globalContext.substring(0, matchIndex);
+            // Find the last header that is NOT a level 3 header (so # or ##)
+            // This is a simplification; we assume the parent section defines the context.
+            const lastParentHeaderMatch = [...textBeforeMatch.matchAll(/^(#{1,2})\s+(.*)$/gm)].pop();
+
+            if (lastParentHeaderMatch) {
+                const headerTitle = lastParentHeaderMatch[2].toLowerCase();
+                const validSectionKeywords = ['character', 'cast', 'person', 'role', 'protagonist', 'antagonist'];
+                const isValidSection = validSectionKeywords.some(kw => headerTitle.includes(kw));
+                
+                if (!isValidSection) {
+                     console.error(`DEBUG - Skipping potential character header "${charName}" because parent section is: "${lastParentHeaderMatch[2]}"`);
+                     continue;
+                }
+            } else {
+                 // If no parent header (top level ###?), risky. 
+                 // But typically characters are under a ## Characters section.
+                 // We'll skip if it looks like a Rule or Instruction header
+                 const invalidKeywords = ['rule', 'prompt', 'instruction', 'setting', 'format', 'optimization', 'export'];
+                 if (invalidKeywords.some(kw => charName.toLowerCase().includes(kw))) {
+                     console.error(`DEBUG - Skipping header "${charName}" (looks like instruction)`);
+                     continue;
+                 }
+            }
 
             const safeName = charName.toLowerCase().replace(/[^a-z0-9]/g, '_');
             const charFilename = request.color ? `${safeName}_color.png` : `${safeName}.png`;
@@ -1350,7 +1425,7 @@ export class ImageGenerator {
                     const bwRes = FileHandler.findInputFile(bwAbsPath);
                     if (bwRes.found) {
                          try { sourceBwImageBase64 = await FileHandler.readImageAsBase64(bwRes.filePath!); } catch (e) {}
-                    } else {
+                    } else if (request.autoGenerateCharacters) {
                          console.error(`DEBUG - Generating BASE B&W ref for ${charName}...`);
                          const bwPrompt = `Character Design Sheet: ${charName}. ${charDesc}. 
                          Include the following views: Front view, Left profile view, Right profile view, and Back view. Ensure strict consistency: The Right profile must be the opposite side of the Left profile.
@@ -1379,40 +1454,46 @@ export class ImageGenerator {
                                 }
                             }
                          } catch (e) { console.error(`DEBUG - Failed to generate base B&W character ${charName}:`, e); }
+                    } else {
+                         console.error(`DEBUG - Skipping B&W generation for ${charName} (autoGenerateCharacters=false)`);
                     }
 
                     // Step 2: Handle Color (only if B&W exists)
                     if (sourceBwImageBase64) {
                         const colorRes = FileHandler.findInputFile(colorAbsPath);
                         if (!colorRes.found) {
-                            console.error(`DEBUG - Generating Color ref for ${charName}...`);
-                            const colorPrompt = `Character Design Sheet: ${charName}. ${charDesc}. 
-                            GENERATE IN FULL COLOR. Vibrant colors, detailed shading.
-                            Use the attached B&W character sheet as the STRICT reference.
-                            Full body, neutral pose, white background.`;
+                            if (request.autoGenerateCharacters) {
+                                console.error(`DEBUG - Generating Color ref for ${charName}...`);
+                                const colorPrompt = `Character Design Sheet: ${charName}. ${charDesc}. 
+                                GENERATE IN FULL COLOR. Vibrant colors, detailed shading.
+                                Use the attached B&W character sheet as the STRICT reference.
+                                Full body, neutral pose, white background.`;
 
-                            try {
-                                const colorResponse = await this.ai.models.generateContent({
-                                    model: this.modelName,
-                                    contents: [{ role: 'user', parts: [
-                                        { text: colorPrompt },
-                                        { inlineData: { data: sourceBwImageBase64, mimeType: 'image/png' } }
-                                    ]}],
-                                });
-                                // Save logic...
-                                if (colorResponse.candidates && colorResponse.candidates[0]?.content?.parts) {
-                                    for (const part of colorResponse.candidates[0].content.parts) {
-                                        let b64: string | undefined;
-                                        if (part.inlineData?.data) b64 = part.inlineData.data;
-                                        else if (part.text && this.isValidBase64ImageData(part.text)) b64 = part.text;
-                                        if (b64) {
-                                            await FileHandler.saveImageFromBase64(b64, charsDir, colorFilename);
-                                            console.error(`DEBUG - Generated Color ${charName}: ${colorAbsPath}`);
-                                            break;
+                                try {
+                                    const colorResponse = await this.ai.models.generateContent({
+                                        model: this.modelName,
+                                        contents: [{ role: 'user', parts: [
+                                            { text: colorPrompt },
+                                            { inlineData: { data: sourceBwImageBase64, mimeType: 'image/png' } }
+                                        ]}],
+                                    });
+                                    // Save logic...
+                                    if (colorResponse.candidates && colorResponse.candidates[0]?.content?.parts) {
+                                        for (const part of colorResponse.candidates[0].content.parts) {
+                                            let b64: string | undefined;
+                                            if (part.inlineData?.data) b64 = part.inlineData.data;
+                                            else if (part.text && this.isValidBase64ImageData(part.text)) b64 = part.text;
+                                            if (b64) {
+                                                await FileHandler.saveImageFromBase64(b64, charsDir, colorFilename);
+                                                console.error(`DEBUG - Generated Color ${charName}: ${colorAbsPath}`);
+                                                break;
+                                            }
                                         }
                                     }
-                                }
-                            } catch (e) {}
+                                } catch (e) {}
+                            } else {
+                                console.error(`DEBUG - Skipping Color generation for ${charName} (autoGenerateCharacters=false)`);
+                            }
                         }
                     }
 
@@ -1506,7 +1587,7 @@ export class ImageGenerator {
                  try {
                      sourceBwImageBase64 = await FileHandler.readImageAsBase64(bwRes.filePath!);
                  } catch (e) { console.error(`DEBUG - Failed to read existing B&W ref:`, e); }
-             } else {
+             } else if (request.autoGenerateCharacters) {
                  console.error(`DEBUG - Generating BASE B&W ref for Main Character...`);
                  const bwPrompt = `Create a full body character design sheet for the main character based on this description. 
                  Include the following views: Front view, Left profile view, Right profile view, and Back view. Ensure strict consistency: The Right profile must be the opposite side of the Left profile.
@@ -1554,48 +1635,54 @@ export class ImageGenerator {
                  } catch (e) {
                      console.error(`DEBUG - Failed to generate base B&W Main Character:`, e);
                  }
+             } else {
+                 console.error(`DEBUG - Skipping Generic B&W generation (autoGenerateCharacters=false)`);
              }
 
              // Step 2: Handle Color (only if we have a B&W base)
              if (sourceBwImageBase64) {
                  const colorRes = FileHandler.findInputFile(colorAbsPath);
                  if (!colorRes.found) {
-                     console.error(`DEBUG - Generating Color ref for Main Character (using B&W base)...`);
-                     const colorPrompt = `Create a full body character design sheet for the main character based on this description. 
-                     Include the following views: Front view, Left profile view, Right profile view, and Back view. Ensure strict consistency: The Right profile must be the opposite side of the Left profile.
+                     if (request.autoGenerateCharacters) {
+                         console.error(`DEBUG - Generating Color ref for Main Character (using B&W base)...`);
+                         const colorPrompt = `Create a full body character design sheet for the main character based on this description. 
+                         Include the following views: Front view, Left profile view, Right profile view, and Back view. Ensure strict consistency: The Right profile must be the opposite side of the Left profile.
          Order them: Front, Left, Right, Back.
-                     Ensure the character appeal and details strictly follow the guidelines provided in the user story file description.
-                     GENERATE IN FULL COLOR. Vibrant colors, detailed shading.
-                     Use the attached B&W character sheet as the STRICT reference for line art and design. Colorize it accurately.
-                     Full body, neutral pose, white background.
-                     
-                     Description:
-                     ${globalContext}`;
-                     
-                     try {
-                        const colorResponse = await this.ai.models.generateContent({
-                            model: this.modelName,
-                            contents: [{ role: 'user', parts: [
-                                { text: colorPrompt },
-                                { inlineData: { data: sourceBwImageBase64, mimeType: 'image/png' } }
-                            ] }],
-                        });
+                         Ensure the character appeal and details strictly follow the guidelines provided in the user story file description.
+                         GENERATE IN FULL COLOR. Vibrant colors, detailed shading.
+                         Use the attached B&W character sheet as the STRICT reference for line art and design. Colorize it accurately.
+                         Full body, neutral pose, white background.
+                         
+                         Description:
+                         ${globalContext}`;
+                         
+                         try {
+                            const colorResponse = await this.ai.models.generateContent({
+                                model: this.modelName,
+                                contents: [{ role: 'user', parts: [
+                                    { text: colorPrompt },
+                                    { inlineData: { data: sourceBwImageBase64, mimeType: 'image/png' } }
+                                ] }],
+                            });
 
-                        if (colorResponse.candidates && colorResponse.candidates[0]?.content?.parts) {
-                            for (const part of colorResponse.candidates[0].content.parts) {
-                                let b64: string | undefined;
-                                if (part.inlineData?.data) b64 = part.inlineData.data;
-                                else if (part.text && this.isValidBase64ImageData(part.text)) b64 = part.text;
+                            if (colorResponse.candidates && colorResponse.candidates[0]?.content?.parts) {
+                                for (const part of colorResponse.candidates[0].content.parts) {
+                                    let b64: string | undefined;
+                                    if (part.inlineData?.data) b64 = part.inlineData.data;
+                                    else if (part.text && this.isValidBase64ImageData(part.text)) b64 = part.text;
 
-                                if (b64) {
-                                    await FileHandler.saveImageFromBase64(b64, charsDir, colorFilename);
-                                    console.error(`DEBUG - Generated Color Main Character: ${colorAbsPath}`);
-                                    break;
+                                    if (b64) {
+                                        await FileHandler.saveImageFromBase64(b64, charsDir, colorFilename);
+                                        console.error(`DEBUG - Generated Color Main Character: ${colorAbsPath}`);
+                                        break;
+                                    }
                                 }
                             }
-                        }
-                     } catch (e) {
-                         console.error(`DEBUG - Failed to generate Color Main Character:`, e);
+                         } catch (e) {
+                             console.error(`DEBUG - Failed to generate Color Main Character:`, e);
+                         }
+                     } else {
+                         console.error(`DEBUG - Skipping Generic Color generation (autoGenerateCharacters=false)`);
                      }
                  }
              }

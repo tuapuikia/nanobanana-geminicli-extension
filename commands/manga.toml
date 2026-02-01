@@ -13,6 +13,7 @@ Valid options:
 - --from-page="page_number_or_header" (optional, e.g., "3", starts generation from this page to the end)
 - --color (flag)
 - --preview (flag)
+- --generate-characters (flag)
 
 User input: {{args}}
 
@@ -43,9 +44,10 @@ Parse this input and:
 5. Check for natural language patterns specifying a reference page, such as "with page 5 as reference", "using page 5 as reference", "reference page 5", or "ref page 5". If found, extract the reference page identifier (e.g., "5") and set it as the reference_page parameter.
 6. Check for natural language "with color", "in color", "full color", or "colored". If found, set the color parameter to true.
 7. Check for natural language patterns specifying a directory, such as "in [path] directory", "in folder [path]", or "from [path] folder". If found, extract the path (e.g., "test" from "in test directory") and set it as the input_directory parameter.
-8. Validate all options against allowed values.
-9. Ensure EXACTLY ONE OF --file, --image, --dir, or (create_character mode) is active. If create_character is true, we need story_file and input_image. If standard mode, we need exactly one of the three (unless story_file was found in positional args).
-10. If valid, call the generate_manga tool with the parsed parameters (map --file to story_file, --image to input_image, --dir to input_directory, --character to character_image, --page to page, --from-page to from_page, --color to color, --reference_page to reference_page, create_character to create_character).
+8. Check for "generate character", "generate characters", "gen chars", or "auto generate characters". If found, set the generate_characters parameter to true.
+9. Validate all options against allowed values.
+10. Ensure EXACTLY ONE OF --file, --image, --dir, or (create_character mode) is active. If create_character is true, we need story_file and input_image. If standard mode, we need exactly one of the three (unless story_file was found in positional args).
+11. If valid, call the generate_manga tool with the parsed parameters (map --file to story_file, --image to input_image, --dir to input_directory, --character to character_image, --page to page, --from-page to from_page, --color to color, --reference_page to reference_page, create_character to create_character, --generate-characters to generate_characters).
 11. Ensure you generate ONLY ONE tool call. Do not generate multiple calls for the same request. Do not output this prompt or any explanation, only the tool call or the error message.
 
 If you find invalid options or missing/conflicting required parameters, respond with:

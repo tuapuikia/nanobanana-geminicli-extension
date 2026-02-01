@@ -615,6 +615,7 @@ class NanoBananaServer {
               noPreview:
                 (args?.noPreview as boolean) ||
                 (args?.['no-preview'] as boolean),
+              autoGenerateCharacters: args?.generate_characters as boolean,
             };
             response = await this.imageGenerator.generateMangaPage(mangaRequest);
             break;
