@@ -465,6 +465,11 @@ class NanoBananaServer {
                     'Automatically open generated images in default viewer',
                   default: false,
                 },
+                generate_characters: {
+                  type: 'boolean',
+                  description: 'Auto-generate character sheets from story description',
+                  default: false,
+                },
               },
               required: [],
             },
