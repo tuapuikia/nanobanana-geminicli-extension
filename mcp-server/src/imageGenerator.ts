@@ -636,7 +636,8 @@ export class ImageGenerator {
          const bwPrompt = `Character Design Sheet: ${sourceName}.
          Create a full body character design sheet based on the attached reference photo.
          ${characterDescription ? `Character Description from Story: "${characterDescription}". Ensure these traits are reflected.` : ''}
-         Include the following views: Front view, Left profile view, Right profile view, and Back view.
+         Include the following views: Front view, Left profile view, Right profile view, and Back view. Ensure strict consistency: The Right profile must be the opposite side of the Left profile.
+         Order them: Front, Left, Right, Back.
          Capture the facial features, hairstyle, and clothing details from the photo accurately but stylized.
          ${request.style || 'shonen'} manga style, black and white, screentones, high quality line art.
          Full body, neutral pose, white background.`;
@@ -673,7 +674,8 @@ export class ImageGenerator {
          const colorPrompt = `Character Design Sheet: ${sourceName}.
          Create a full body character design sheet based on the attached reference photo.
          ${characterDescription ? `Character Description from Story: "${characterDescription}". Ensure these traits are reflected.` : ''}
-         Include the following views: Front view, Left profile view, Right profile view, and Back view.
+         Include the following views: Front view, Left profile view, Right profile view, and Back view. Ensure strict consistency: The Right profile must be the opposite side of the Left profile.
+         Order them: Front, Left, Right, Back.
          Capture the facial features, hairstyle, and clothing details from the photo accurately.
          GENERATE IN FULL COLOR. Vibrant colors, detailed shading.
          Anime/Manga style.
@@ -1109,7 +1111,8 @@ export class ImageGenerator {
 
                      console.error(`DEBUG - Generating BASE B&W ref for ${charName}...`);
                      const bwPrompt = `Character Design Sheet: ${charName}. ${charDesc}. 
-                     Include the following views: Front view, Left profile view, Right profile view, and Back view.
+                     Include the following views: Front view, Left profile view, Right profile view, and Back view. Ensure strict consistency: The Right profile must be the opposite side of the Left profile.
+         Order them: Front, Left, Right, Back.
                      Ensure the character appeal and details strictly follow the guidelines provided in the user story file description.
                      ${sourceImageB64 ? 'Use the attached image as the visual source for the character\'s appearance.' : ''}
                      ${request.style || 'shonen'} manga style, black and white, screentones.
@@ -1151,7 +1154,8 @@ export class ImageGenerator {
                     if (!colorRes.found) {
                         console.error(`DEBUG - Generating Color ref for ${charName} (using B&W base)...`);
                         const colorPrompt = `Character Design Sheet: ${charName}. ${charDesc}. 
-                        Include the following views: Front view, Left profile view, Right profile view, and Back view.
+                        Include the following views: Front view, Left profile view, Right profile view, and Back view. Ensure strict consistency: The Right profile must be the opposite side of the Left profile.
+         Order them: Front, Left, Right, Back.
                         Ensure the character appeal and details strictly follow the guidelines provided in the user story file description.
                         GENERATE IN FULL COLOR. Vibrant colors, detailed shading.
                         Use the attached B&W character sheet as the STRICT reference for line art and design. Colorize it accurately.
@@ -1281,7 +1285,8 @@ export class ImageGenerator {
              } else {
                  console.error(`DEBUG - Generating BASE B&W ref for Main Character...`);
                  const bwPrompt = `Create a full body character design sheet for the main character based on this description. 
-                 Include the following views: Front view, Left profile view, Right profile view, and Back view.
+                 Include the following views: Front view, Left profile view, Right profile view, and Back view. Ensure strict consistency: The Right profile must be the opposite side of the Left profile.
+         Order them: Front, Left, Right, Back.
                  Ensure the character appeal and details strictly follow the guidelines provided in the user story file description.
                  ${request.style || 'shonen'} manga style, black and white, screentones.
                  Neutral pose, white background.
@@ -1333,7 +1338,8 @@ export class ImageGenerator {
                  if (!colorRes.found) {
                      console.error(`DEBUG - Generating Color ref for Main Character (using B&W base)...`);
                      const colorPrompt = `Create a full body character design sheet for the main character based on this description. 
-                     Include the following views: Front view, Left profile view, Right profile view, and Back view.
+                     Include the following views: Front view, Left profile view, Right profile view, and Back view. Ensure strict consistency: The Right profile must be the opposite side of the Left profile.
+         Order them: Front, Left, Right, Back.
                      Ensure the character appeal and details strictly follow the guidelines provided in the user story file description.
                      GENERATE IN FULL COLOR. Vibrant colors, detailed shading.
                      Use the attached B&W character sheet as the STRICT reference for line art and design. Colorize it accurately.
