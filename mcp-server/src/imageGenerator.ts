@@ -1229,7 +1229,8 @@ export class ImageGenerator {
                                     else if (part.text && this.isValidBase64ImageData(part.text)) b64 = part.text;
 
                                     if (b64) {
-                                        await FileHandler.saveImageFromBase64(b64, charsDir, bwFilename);
+                                        const fullPath = await FileHandler.saveImageFromBase64(b64, charsDir, bwFilename);
+                                        generatedFiles.push(fullPath);
                                         sourceBwImageBase64 = b64;
                                         console.error(`DEBUG - Generated Base B&W ${charName}: ${bwAbsPath}`);
                                         break;
@@ -1273,7 +1274,8 @@ export class ImageGenerator {
                                             else if (part.text && this.isValidBase64ImageData(part.text)) b64 = part.text;
 
                                             if (b64) {
-                                                await FileHandler.saveImageFromBase64(b64, charsDir, colorFilename);
+                                                const fullPath = await FileHandler.saveImageFromBase64(b64, charsDir, colorFilename);
+                                                generatedFiles.push(fullPath);
                                                 console.error(`DEBUG - Generated Color ${charName}: ${colorAbsPath}`);
                                                 break;
                                             }
@@ -1446,7 +1448,8 @@ export class ImageGenerator {
                                     if (part.inlineData?.data) b64 = part.inlineData.data;
                                     else if (part.text && this.isValidBase64ImageData(part.text)) b64 = part.text;
                                     if (b64) {
-                                        await FileHandler.saveImageFromBase64(b64, charsDir, bwFilename);
+                                        const fullPath = await FileHandler.saveImageFromBase64(b64, charsDir, bwFilename);
+                                        generatedFiles.push(fullPath);
                                         sourceBwImageBase64 = b64;
                                         console.error(`DEBUG - Generated Base B&W ${charName}: ${bwAbsPath}`);
                                         break;
@@ -1484,7 +1487,8 @@ export class ImageGenerator {
                                             if (part.inlineData?.data) b64 = part.inlineData.data;
                                             else if (part.text && this.isValidBase64ImageData(part.text)) b64 = part.text;
                                             if (b64) {
-                                                await FileHandler.saveImageFromBase64(b64, charsDir, colorFilename);
+                                                const fullPath = await FileHandler.saveImageFromBase64(b64, charsDir, colorFilename);
+                                                generatedFiles.push(fullPath);
                                                 console.error(`DEBUG - Generated Color ${charName}: ${colorAbsPath}`);
                                                 break;
                                             }
@@ -1738,6 +1742,24 @@ export class ImageGenerator {
         }
 
 
+      }
+
+      // Return early if we were only asked to generate characters
+      if (request.autoGenerateCharacters) {
+          if (generatedFiles.length > 0) {
+              await this.handlePreview(generatedFiles, request);
+              return {
+                  success: true,
+                  message: `Successfully generated ${generatedFiles.length} character reference(s).`,
+                  generatedFiles,
+              };
+          } else {
+               return {
+                   success: true,
+                   message: 'No new character references were generated (files may already exist or no character definitions found).',
+                   generatedFiles: [],
+               };
+          }
       }
 
       // Explicit Reference Page (CLI Argument)
