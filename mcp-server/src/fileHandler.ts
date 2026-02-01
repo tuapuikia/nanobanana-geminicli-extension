@@ -21,12 +21,18 @@ export class FileHandler {
 
   static ensureOutputDirectory(): string {
     const outputPath = path.join(process.cwd(), this.OUTPUT_DIR);
-
-    if (!fs.existsSync(outputPath)) {
-      fs.mkdirSync(outputPath, { recursive: true });
-    }
-
+    this.ensureDirectory(outputPath);
     return outputPath;
+  }
+
+  static ensureDirectory(dirPath: string): void {
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true });
+    }
+  }
+
+  static async saveTextFile(filePath: string, content: string): Promise<void> {
+    await fs.promises.writeFile(filePath, content, 'utf-8');
   }
 
   static findInputFile(filename: string): FileSearchResult {

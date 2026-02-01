@@ -6,6 +6,7 @@
 
 import { GoogleGenAI } from '@google/genai';
 import { FileHandler } from './fileHandler.js';
+import * as path from 'path';
 import {
   ImageGenerationRequest,
   ImageGenerationResponse,
@@ -890,6 +891,227 @@ export class ImageGenerator {
              const b64 = await FileHandler.readImageAsBase64(charRes.filePath!);
              globalReferenceImages.push({ data: b64, mimeType: 'image/png' });
              globalContext += `\n\n(See attached character reference: ${request.characterImage})`;
+        }
+      } else if (request.storyFile) {
+        // Auto-detect or Generate Character Reference
+        const storyFilename = request.storyFile.split(/[/\\]/).pop()?.split('.')[0] || 'story';
+        const storyAbsPath = storyFileResult.filePath!;
+        const storyDir = path.dirname(storyAbsPath);
+        const charsDir = path.join(storyDir, 'characters');
+        FileHandler.ensureDirectory(charsDir);
+
+        // 1. Parse Explicit Character List in Text
+        // Matches: * **Name:** Description  OR  - **Name:** Description
+        const charListRegex = /^\s*[\*\-]\s*\*\*([^\*:]+)(?::)?\*\*\s*([^\n]+)$/gm;
+        let charMatch;
+        let storyContentModified = false;
+        let newStoryContent = storyContent;
+
+        // We process matches from the original content to ensure we can replace lines accurately
+        // Note: regex.exec is stateful.
+        while ((charMatch = charListRegex.exec(globalContext)) !== null) {
+            const fullMatchLine = charMatch[0];
+            const charName = charMatch[1].trim();
+            const charDesc = charMatch[2].trim();
+            
+            // Skip if line already has an image link
+            if (fullMatchLine.match(/!\[.*?\]\(.*?\)/)) {
+                continue; 
+            }
+
+            console.error(`DEBUG - Found character definition: ${charName}`);
+            
+            const safeName = charName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+            const charFilename = `${safeName}.png`;
+            const charRelPath = path.join('characters', charFilename);
+            const charAbsPath = path.join(charsDir, charFilename);
+            
+            let charFullPath = '';
+            
+            // Check if exists
+            const existingRes = FileHandler.findInputFile(charAbsPath);
+            if (existingRes.found) {
+                charFullPath = existingRes.filePath!;
+                console.error(`DEBUG - Found existing ref for ${charName}: ${charFullPath}`);
+            } else {
+                // Generate
+                console.error(`DEBUG - Generating ref for ${charName}...`);
+                const charPrompt = `Character Design Sheet: ${charName}. ${charDesc}. 
+                Include the following views: Front view, Left profile view, Right profile view, and Back view.
+                ${request.style || 'shonen'} manga style, full body, neutral pose, white background.`;
+                
+                try {
+                    const charResponse = await this.ai.models.generateContent({
+                        model: this.modelName,
+                        contents: [{ role: 'user', parts: [{ text: charPrompt }] }],
+                    });
+
+                     if (charResponse.candidates && charResponse.candidates[0]?.content?.parts) {
+                        for (const part of charResponse.candidates[0].content.parts) {
+                            let b64: string | undefined;
+                            if (part.inlineData?.data) b64 = part.inlineData.data;
+                            else if (part.text && this.isValidBase64ImageData(part.text)) b64 = part.text;
+
+                            if (b64) {
+                                charFullPath = await FileHandler.saveImageFromBase64(b64, charsDir, charFilename);
+                                console.error(`DEBUG - Generated ${charName}: ${charFullPath}`);
+                                break;
+                            }
+                        }
+                     }
+                } catch (e) {
+                    console.error(`DEBUG - Failed to generate character ${charName}:`, e);
+                }
+            }
+
+            if (charFullPath) {
+                // Add to current session refs
+                try {
+                    const b64 = await FileHandler.readImageAsBase64(charFullPath);
+                    globalReferenceImages.push({ data: b64, mimeType: 'image/png' });
+                    // Append link to the story file content
+                    // We replace the exact line with "Line ![Name](path)"
+                    // Using direct string replacement might be risky if duplicates exist. 
+                    // But usually character definitions are unique enough.
+                    newStoryContent = newStoryContent.replace(fullMatchLine, `${fullMatchLine} ![${charName}](${charRelPath})`);
+                    storyContentModified = true;
+                } catch (e) {
+                    console.error(`DEBUG - Error processing ${charName} image:`, e);
+                }
+            }
+        }
+
+        if (storyContentModified) {
+            await FileHandler.saveTextFile(storyAbsPath, newStoryContent);
+            console.error(`DEBUG - Updated story file with new character links.`);
+            
+            // Update globalContext variable so the rest of the prompt sees the links (though we already added the images manually)
+            // Actually, we should probably update globalContext to match newStoryContent's relevant part
+            // But since we pushed images to `globalReferenceImages`, the AI has the visual data.
+            // The text context update is secondary but good for consistency.
+            // Re-extracting globalContext from newStoryContent is safest but we can just append a note.
+            globalContext += "\n(Note: Character references have been auto-generated and attached)";
+        }
+
+        // 2. Fallback: Single Story Character (only if we didn't find specific characters OR explicit requested)
+        // If we found specific characters, we might not want the generic one. 
+        // But maybe there's a protagonist not listed? 
+        // Let's keep the logic but maybe deprioritize if globalReferenceImages is already populated.
+        
+        const charRefFilename = `${storyFilename}_character.png`;
+        
+        // ... (rest of the previous fallback logic) ...
+        
+        // Check specific charsDir first
+        const specificCharPath = path.join(charsDir, charRefFilename);
+        let charRefPathResult: { found: boolean; filePath?: string } = { found: false };
+
+        if (FileHandler.findInputFile(specificCharPath).found) {
+            charRefPathResult = FileHandler.findInputFile(specificCharPath);
+        } else {
+             // Fallback to standard search
+             charRefPathResult = FileHandler.findInputFile(charRefFilename);
+        }
+        
+        // Only run generic fallback if we haven't found any other references? 
+        // Or always run it to check for the "Main" file?
+        // Let's run it.
+        
+        if (charRefPathResult.found) {
+            console.error(`DEBUG - Found existing main character reference: ${charRefPathResult.filePath}`);
+             try {
+                const b64 = await FileHandler.readImageAsBase64(charRefPathResult.filePath!);
+                globalReferenceImages.push({ data: b64, mimeType: 'image/png' });
+                globalContext += `\n\n(See attached main character reference: ${charRefFilename})`;
+             } catch (e) {
+                console.error(`DEBUG - Failed to load existing character reference:`, e);
+             }
+        } else if (globalReferenceImages.length === 0 && globalContext.trim().length > 50) { 
+             // Only auto-generate the GENERIC one if we have NO other references.
+             // This prevents generating a duplicate "generic" sheet if we just generated specific ones.
+             
+             console.error(`DEBUG - No specific character references found. Generating generic one from story context...`);
+             const charPrompt = `Create a full body character design sheet for the main character based on this description. 
+             Include the following views: Front view, Left profile view, Right profile view, and Back view.
+             Ensure the character appeal and details strictly follow the guidelines provided in the user story file description.
+             Draw them in ${request.style || 'shonen'} manga style. Neutral pose, white background.
+             
+             Description:
+             ${globalContext}`;
+             
+             // Extract images from text to use as reference for character generation
+             const textImagePaths = this.extractImagePaths(globalContext);
+             const charGenerationParts: any[] = [{ text: charPrompt }];
+
+             for (const imgPath of textImagePaths) {
+                 const f = FileHandler.findInputFile(imgPath);
+                 if (f.found) {
+                     try {
+                         const b64 = await FileHandler.readImageAsBase64(f.filePath!);
+                         charGenerationParts.push({ inlineData: { data: b64, mimeType: 'image/png' } });
+                         console.error(`DEBUG - Using embedded image for character generation: ${imgPath}`);
+                     } catch (e) {
+                         console.error(`DEBUG - Failed to load embedded ref ${imgPath}:`, e);
+                     }
+                 }
+             }
+
+             try {
+                 const charResponse = await this.ai.models.generateContent({
+                    model: this.modelName,
+                    contents: [{ role: 'user', parts: charGenerationParts }],
+                 });
+
+                 if (charResponse.candidates && charResponse.candidates[0]?.content?.parts) {
+                    for (const part of charResponse.candidates[0].content.parts) {
+                        let charImageBase64: string | undefined;
+                        if (part.inlineData?.data) {
+                            charImageBase64 = part.inlineData.data;
+                        } else if (part.text && this.isValidBase64ImageData(part.text)) {
+                            charImageBase64 = part.text;
+                        }
+
+                        if (charImageBase64) {
+                            const fullPath = await FileHandler.saveImageFromBase64(
+                                charImageBase64,
+                                charsDir, 
+                                charRefFilename,
+                            );
+                            
+                            // Add to generated files list so user knows it was created
+                            generatedFiles.push(fullPath);
+                            
+                            // Add to current execution context
+                            globalReferenceImages.push({ data: charImageBase64, mimeType: 'image/png' });
+                            globalContext += `\n\n(See attached generated main character reference: ${charRefFilename})`;
+                            console.error(`DEBUG - Generated and attached character reference: ${fullPath}`);
+
+                            // Update Story File with Generic Ref
+                            const relPath = path.relative(storyDir, fullPath);
+                            const refLink = `\n\n![Main Character Reference](${relPath})`;
+                            
+                            // Insert before the first page header or append
+                            // Note: we might have already modified newStoryContent above.
+                            let contentToUpdate = storyContentModified ? newStoryContent : storyContent;
+                            
+                            const pageMatch = contentToUpdate.match(/(?:^|\n)(#{1,3}\s*Page\s*\d+|Page\s*\d+:)/i);
+                            
+                            if (pageMatch && pageMatch.index !== undefined) {
+                                contentToUpdate = contentToUpdate.slice(0, pageMatch.index) + refLink + contentToUpdate.slice(pageMatch.index);
+                            } else {
+                                contentToUpdate += refLink;
+                            }
+                            
+                            await FileHandler.saveTextFile(storyAbsPath, contentToUpdate);
+                            console.error(`DEBUG - Updated story file with generic character reference.`);
+
+                            break;
+                        }
+                    }
+                 }
+             } catch (e) {
+                 console.error(`DEBUG - Failed to auto-generate character reference:`, e);
+             }
         }
       }
 
