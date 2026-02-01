@@ -610,8 +610,8 @@ export class ImageGenerator {
          const sourceName = path.basename(request.inputImage, path.extname(request.inputImage));
          const safeName = sourceName.toLowerCase().replace(/[^a-z0-9]/g, '_');
          
-         const bwFilename = `${safeName}.png`;
-         const colorFilename = `${safeName}_color.png`;
+         const bwFilename = `${safeName}_portrait.png`;
+         const colorFilename = `${safeName}_portrait_color.png`;
          
          const sourceB64 = await FileHandler.readImageAsBase64(sourceFileRes.filePath!);
          const generatedFiles: string[] = [];
@@ -1117,7 +1117,7 @@ export class ImageGenerator {
             }
 
             const safeName = charName.toLowerCase().replace(/[^a-z0-9]/g, '_');
-            const charFilename = request.color ? `${safeName}_color.png` : `${safeName}.png`;
+            const charFilename = request.color ? `${safeName}_portrait_color.png` : `${safeName}_portrait.png`;
             const charRelPath = path.join('characters', charFilename);
             const charAbsPath = path.join(charsDir, charFilename);
 
@@ -1176,9 +1176,9 @@ export class ImageGenerator {
                     // 2. Ensure Color exists (Generate from B&W if missing)
                     // 3. Return the one requested by current mode
                     
-                    const bwFilename = `${safeName}.png`;
+                    const bwFilename = `${safeName}_portrait.png`;
                     const bwAbsPath = path.join(charsDir, bwFilename);
-                    const colorFilename = `${safeName}_color.png`;
+                    const colorFilename = `${safeName}_portrait_color.png`;
                     const colorAbsPath = path.join(charsDir, colorFilename);
                     
                     let sourceBwImageBase64: string | undefined = undefined;
@@ -1309,7 +1309,7 @@ export class ImageGenerator {
                     globalReferenceImages.push({ data: b64, mimeType: 'image/png' });
                     // Append link to the story file content
                     // We need to determine the correct relative path based on what was selected
-                    const finalFilename = request.color ? `${safeName}_color.png` : `${safeName}.png`;
+                    const finalFilename = request.color ? `${safeName}_portrait_color.png` : `${safeName}_portrait.png`;
                     const finalRelPath = path.join('characters', finalFilename);
                     
                     newStoryContent = newStoryContent.replace(fullMatchLine, `${fullMatchLine} ![${charName}](${finalRelPath})`);
@@ -1361,7 +1361,7 @@ export class ImageGenerator {
             }
 
             const safeName = charName.toLowerCase().replace(/[^a-z0-9]/g, '_');
-            const charFilename = request.color ? `${safeName}_color.png` : `${safeName}.png`;
+            const charFilename = request.color ? `${safeName}_portrait_color.png` : `${safeName}_portrait.png`;
             const charRelPath = path.join('characters', charFilename);
             const charAbsPath = path.join(charsDir, charFilename);
             
@@ -1416,9 +1416,9 @@ export class ImageGenerator {
                     console.error(`DEBUG - Found existing ref for ${charName}: ${charFullPath}`);
                 } else {
                      // Generation Logic (Same as above)
-                    const bwFilename = `${safeName}.png`;
+                    const bwFilename = `${safeName}_portrait.png`;
                     const bwAbsPath = path.join(charsDir, bwFilename);
-                    const colorFilename = `${safeName}_color.png`;
+                    const colorFilename = `${safeName}_portrait_color.png`;
                     const colorAbsPath = path.join(charsDir, colorFilename);
                     
                     let sourceBwImageBase64: string | undefined = undefined;
