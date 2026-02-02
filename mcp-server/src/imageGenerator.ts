@@ -1140,9 +1140,9 @@ export class ImageGenerator {
             const charRelPath = path.join('characters', charFilename);
             const charAbsPath = path.join(charsDir, charFilename);
 
-            // Skip if line already has THIS specific image link
+            // Skip if line already has THIS specific image link AND the file actually exists
             if (fullMatchLine.includes(charFilename)) {
-                // IMPORTANT: Even if the link exists, we MUST load it into memory for this session
+                // IMPORTANT: Check if file exists on disk
                 const existingRes = FileHandler.findInputFile(charAbsPath);
                 if (existingRes.found) {
                     try {
@@ -1152,8 +1152,10 @@ export class ImageGenerator {
                     } catch (e) {
                         console.error(`DEBUG - Failed to load existing reference for ${charName}:`, e);
                     }
+                    continue; 
+                } else {
+                     console.error(`DEBUG - Character link found for ${charName} but file missing. Regenerating...`);
                 }
-                continue; 
             }
 
             console.error(`DEBUG - Processing character definition: ${charName} for ${request.color ? 'Color' : 'B&W'}`);
@@ -1559,6 +1561,17 @@ export class ImageGenerator {
             // The text context update is secondary but good for consistency.
             // Re-extracting globalContext from newStoryContent is safest but we can just append a note.
             globalContext += "\n(Note: Character references have been auto-generated and attached)";
+        }
+
+        // Check for Character Generation Only Mode
+        if (request.characterGenerationOnly) {
+             const successMsg = `Successfully generated/verified character sheets for story. Skipping page generation (Character Generation Only mode).`;
+             console.error(`DEBUG - ${successMsg}`);
+             return {
+                 success: true,
+                 message: successMsg,
+                 generatedFiles
+             };
         }
 
         
