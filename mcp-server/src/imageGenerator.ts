@@ -1709,6 +1709,21 @@ export class ImageGenerator {
 
         console.error(`DEBUG - Processing ${page.header}...`);
 
+        // Check if page already exists to support resume capability
+        const filenamePrompt = `manga ${page.header}`;
+        const baseName = FileHandler.getSanitizedBaseName(filenamePrompt);
+        // We assume 'png' as per generateFilename usage later in the loop
+        const expectedFilename = `${baseName}.png`;
+        const outputPath = FileHandler.ensureOutputDirectory();
+        const fullExpectedPath = path.join(outputPath, expectedFilename);
+
+        if (fs.existsSync(fullExpectedPath)) {
+            console.error(`DEBUG - File already exists: ${fullExpectedPath}. Skipping generation.`);
+            previousPagePath = fullExpectedPath;
+            generatedFiles.push(fullExpectedPath);
+            continue;
+        }
+
         // Resolve Previous Page Reference (Logic for Continuity)
         // If we don't have a previousPagePath from this run, try to find one from disk
         if (!previousPagePath && originalIndex > 0) {
@@ -1743,12 +1758,14 @@ export class ImageGenerator {
         // Prepare Message Parts
         const parts: any[] = [{ text: fullPrompt }];
 
-        // Add Global References
+        // Add Global References with Labels
         for (const img of globalReferenceImages) {
-            parts.push({ inlineData: img });
+            const label = path.basename(img.sourcePath, path.extname(img.sourcePath)).replace(/_/g, ' ');
+            parts.push({ text: `Reference image for: "${label}"` });
+            parts.push({ inlineData: { data: img.data, mimeType: img.mimeType } });
         }
 
-        // Add Page Specific References
+        // Add Page Specific References with Labels
         const pageImagePaths = this.extractImagePaths(page.content);
         for (const imgPath of pageImagePaths) {
             // Avoid duplicates if already in global
@@ -1758,6 +1775,8 @@ export class ImageGenerator {
             if (fileRes.found) {
                 try {
                     const b64 = await FileHandler.readImageAsBase64(fileRes.filePath!);
+                    const label = path.basename(fileRes.filePath!, path.extname(fileRes.filePath!)).replace(/_/g, ' ');
+                    parts.push({ text: `Reference image for: "${label}"` });
                     parts.push({ inlineData: { data: b64, mimeType: 'image/png' } });
                     console.error(`DEBUG - Loaded page reference: ${imgPath}`);
                 } catch (e) {
@@ -1770,8 +1789,9 @@ export class ImageGenerator {
         if (previousPagePath) {
             try {
                 const prevB64 = await FileHandler.readImageAsBase64(previousPagePath);
+                parts.push({ text: "Reference: Previous Page" });
                 parts.push({ inlineData: { data: prevB64, mimeType: 'image/png' } });
-                parts[0].text += `\n\n[PREVIOUS PAGE REFERENCE]\nThe attached image is the immediately preceding page (${originalIndex > 0 ? pages[originalIndex - 1].header : 'previous'}). Maintain strict visual continuity with it regarding environment, lighting, and character positioning where applicable.`;
+                parts[0].text += `\n\n[PREVIOUS PAGE REFERENCE]\nThe attached image "Reference: Previous Page" is the immediately preceding page (${originalIndex > 0 ? pages[originalIndex - 1].header : 'previous'}). Maintain strict visual continuity with it regarding environment, lighting, and character positioning where applicable.`;
                 console.error(`DEBUG - Added previous page as reference.`);
             } catch (e) {
                 console.error(`DEBUG - Failed to load previous page ref:`, e);

@@ -92,11 +92,7 @@ export class FileHandler {
     };
   }
 
-  static generateFilename(
-    prompt: string,
-    format: 'png' | 'jpeg' = 'png',
-    index: number = 0,
-  ): string {
+  static getSanitizedBaseName(prompt: string): string {
     // Create user-friendly filename from prompt
     let baseName = prompt
       .toLowerCase()
@@ -107,7 +103,15 @@ export class FileHandler {
     if (!baseName) {
       baseName = 'generated_image';
     }
+    return baseName;
+  }
 
+  static generateFilename(
+    prompt: string,
+    format: 'png' | 'jpeg' = 'png',
+    index: number = 0,
+  ): string {
+    const baseName = this.getSanitizedBaseName(prompt);
     const extension = format === 'jpeg' ? 'jpg' : 'png';
 
     // Check for existing files and add counter if needed
