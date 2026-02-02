@@ -7,6 +7,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { FileHandler } from './fileHandler.js';
 import * as path from 'path';
+import * as fs from 'fs';
 import {
   ImageGenerationRequest,
   ImageGenerationResponse,
@@ -99,7 +100,19 @@ export class ImageGenerator {
     await Promise.all(previewPromises);
   }
 
+  private async logGeneration(modelName: string, generatedFiles: string[]): Promise<void> {
+    try {
+      const logDir = FileHandler.ensureOutputDirectory();
+      const logFile = path.join(logDir, 'nanobanana-output.log');
+      const timestamp = new Date().toISOString();
+      const logEntry = `[${timestamp}] Model: ${modelName}, Generated Files: ${generatedFiles.join(', ')}\n`;
 
+      await fs.promises.appendFile(logFile, logEntry, 'utf-8');
+      console.error(`DEBUG - Logged generation to: ${logFile}`);
+    } catch (error) {
+      console.error('DEBUG - Failed to write to log file:', error);
+    }
+  }
 
   static validateAuthentication(): AuthConfig {
     const nanoGeminiKey = process.env.NANOBANANA_GEMINI_API_KEY;
@@ -341,6 +354,8 @@ export class ImageGenerator {
       // Handle preview if requested
       await this.handlePreview(generatedFiles, request);
 
+      await this.logGeneration(this.modelName, generatedFiles);
+
       return {
         success: true,
         message: `Successfully generated ${generatedFiles.length} image variation(s)`,
@@ -529,6 +544,8 @@ export class ImageGenerator {
           ? `Successfully generated complete ${steps}-step ${type} sequence`
           : `Generated ${generatedFiles.length} out of ${steps} requested ${type} steps (${steps - generatedFiles.length} steps failed)`;
   
+        await this.logGeneration(this.modelName, generatedFiles);
+
         return {
           success: true,
           message: successMessage,
@@ -728,6 +745,7 @@ export class ImageGenerator {
 
          if (generatedFiles.length > 0) {
              await this.handlePreview(generatedFiles, request);
+             await this.logGeneration(this.modelName, generatedFiles);
              return {
                  success: true,
                  message: `Successfully created character sheets for ${sourceName} in ${charsDir}`,
@@ -868,6 +886,7 @@ export class ImageGenerator {
 
         if (generatedFiles.length > 0) {
             await this.handlePreview(generatedFiles, request);
+            await this.logGeneration(this.modelName, generatedFiles);
             return {
                 success: true,
                 message: `Successfully processed ${generatedFiles.length} images from directory.`,
@@ -945,6 +964,8 @@ export class ImageGenerator {
                 console.error('DEBUG - Edited manga page saved to:', fullPath);
                 
                 await this.handlePreview([fullPath], request);
+                
+                await this.logGeneration(this.modelName, [fullPath]);
 
                 return {
                   success: true,
@@ -1778,6 +1799,7 @@ export class ImageGenerator {
 
       if (generatedFiles.length > 0) {
         await this.handlePreview(generatedFiles, request);
+        await this.logGeneration(this.modelName, generatedFiles);
         return {
           success: true,
           message: `Successfully generated ${generatedFiles.length} of ${pages.length} manga pages/panels.`,
@@ -1895,6 +1917,8 @@ generatedFiles.push(fullPath);
 
         // Handle preview if requested
         await this.handlePreview(generatedFiles, request);
+
+        await this.logGeneration(this.modelName, generatedFiles);
 
         return {
           success: true,
