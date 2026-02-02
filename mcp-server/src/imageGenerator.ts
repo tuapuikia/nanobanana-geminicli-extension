@@ -1045,7 +1045,7 @@ export class ImageGenerator {
 
       // Extract Global Reference Images
       const globalImagePaths = this.extractImagePaths(globalContext);
-      const globalReferenceImages: { data: string; mimeType: string }[] = [];
+      const globalReferenceImages: { data: string; mimeType: string; sourcePath: string }[] = [];
       const loadedGlobalImagePaths = new Set<string>();
 
       for (const imgPath of globalImagePaths) {
@@ -1058,7 +1058,8 @@ export class ImageGenerator {
                 const b64 = await FileHandler.readImageAsBase64(fileRes.filePath!);
                 globalReferenceImages.push({
                     data: b64,
-                    mimeType: 'image/png' // Assuming png for simplicity, logic could be smarter
+                    mimeType: 'image/png', // Assuming png for simplicity, logic could be smarter
+                    sourcePath: imgPath
                 });
                 loadedGlobalImagePaths.add(fileRes.filePath!);
                 console.error(`DEBUG - Loaded global reference: ${imgPath}`);
@@ -1073,7 +1074,7 @@ export class ImageGenerator {
         const charRes = FileHandler.findInputFile(request.characterImage);
         if (charRes.found && !loadedGlobalImagePaths.has(charRes.filePath!)) {
              const b64 = await FileHandler.readImageAsBase64(charRes.filePath!);
-             globalReferenceImages.push({ data: b64, mimeType: 'image/png' });
+             globalReferenceImages.push({ data: b64, mimeType: 'image/png', sourcePath: request.characterImage });
              loadedGlobalImagePaths.add(charRes.filePath!);
              globalContext += `\n\n(See attached character reference: ${request.characterImage})`;
         }
@@ -1159,7 +1160,7 @@ export class ImageGenerator {
 
                     try {
                         const b64 = await FileHandler.readImageAsBase64(existingRes.filePath!);
-                        globalReferenceImages.push({ data: b64, mimeType: 'image/png' });
+                        globalReferenceImages.push({ data: b64, mimeType: 'image/png', sourcePath: existingRes.filePath! });
                         loadedGlobalImagePaths.add(existingRes.filePath!);
                         console.error(`DEBUG - Loaded existing reference from text: ${charName}`);
                     } catch (e) {
@@ -1345,7 +1346,7 @@ export class ImageGenerator {
                 } else {
                     try {
                         const b64 = await FileHandler.readImageAsBase64(charFullPath);
-                        globalReferenceImages.push({ data: b64, mimeType: 'image/png' });
+                        globalReferenceImages.push({ data: b64, mimeType: 'image/png', sourcePath: charFullPath });
                         loadedGlobalImagePaths.add(charFullPath);
                         // Append link to the story file content
                         // We need to determine the correct relative path based on what was selected
@@ -1416,7 +1417,7 @@ export class ImageGenerator {
                     }
                     try {
                         const b64 = await FileHandler.readImageAsBase64(existingRes.filePath!);
-                        globalReferenceImages.push({ data: b64, mimeType: 'image/png' });
+                        globalReferenceImages.push({ data: b64, mimeType: 'image/png', sourcePath: existingRes.filePath! });
                         loadedGlobalImagePaths.add(existingRes.filePath!);
                         console.error(`DEBUG - Loaded existing reference from text (Header): ${charName}`);
                     } catch (e) {
@@ -1562,7 +1563,7 @@ export class ImageGenerator {
                 if (!loadedGlobalImagePaths.has(charFullPath)) {
                     try {
                         const b64 = await FileHandler.readImageAsBase64(charFullPath);
-                        globalReferenceImages.push({ data: b64, mimeType: 'image/png' });
+                        globalReferenceImages.push({ data: b64, mimeType: 'image/png', sourcePath: charFullPath });
                         loadedGlobalImagePaths.add(charFullPath);
                         console.error(`DEBUG - Registered ${charName} from header section.`);
                         
@@ -1624,7 +1625,7 @@ export class ImageGenerator {
         if (existingRefFile) {
             try {
                 const b64 = await FileHandler.readImageAsBase64(existingRefFile);
-                globalReferenceImages.push({ data: b64, mimeType: 'image/png' });
+                globalReferenceImages.push({ data: b64, mimeType: 'image/png', sourcePath: existingRefFile });
                 globalContext += `\n\n(See attached reference image: Page ${refPageNum}). Use this image as a strong reference for visual style and character consistency.`;
                 console.error(`DEBUG - Loaded explicit reference page: ${existingRefFile}`);
             } catch (e) {
@@ -1775,6 +1776,40 @@ export class ImageGenerator {
             } catch (e) {
                 console.error(`DEBUG - Failed to load previous page ref:`, e);
             }
+        }
+
+        // LOGGING INCLUDED IMAGES
+        try {
+            const includedImages: string[] = [];
+            
+            // Global Refs
+            globalReferenceImages.forEach(img => includedImages.push(`Global Ref: ${path.basename(img.sourcePath)}`));
+            
+            // Page Refs
+            // Note: We iterated pageImagePaths earlier but didn't store source paths in a list, 
+            // but we can infer them or just log what we found.
+            // Let's re-check what was actually added.
+            // Actually, we can just iterate pageImagePaths again since we only added if found.
+            for (const imgPath of pageImagePaths) {
+                 if (!globalImagePaths.includes(imgPath)) {
+                      const fileRes = FileHandler.findInputFile(imgPath);
+                      if (fileRes.found) includedImages.push(`Page Ref: ${path.basename(fileRes.filePath!)}`);
+                 }
+            }
+
+            // Previous Page
+            if (previousPagePath) includedImages.push(`Prev Page Ref: ${path.basename(previousPagePath)}`);
+
+            const logDir = FileHandler.ensureOutputDirectory();
+            const logFile = path.join(logDir, 'nanobanana-output.log');
+            const timestamp = new Date().toISOString();
+            const logEntry = `[${timestamp}] Generating ${page.header}. Attached References: ${includedImages.join(', ')}\n`;
+            
+            await fs.promises.appendFile(logFile, logEntry, 'utf-8');
+            console.error(`DEBUG - Logged attached references to ${logFile}`);
+
+        } catch (e) {
+            console.error('DEBUG - Failed to log attached references:', e);
         }
 
         try {
