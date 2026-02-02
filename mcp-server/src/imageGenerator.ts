@@ -1046,16 +1046,21 @@ export class ImageGenerator {
       // Extract Global Reference Images
       const globalImagePaths = this.extractImagePaths(globalContext);
       const globalReferenceImages: { data: string; mimeType: string }[] = [];
+      const loadedGlobalImagePaths = new Set<string>();
 
       for (const imgPath of globalImagePaths) {
         const fileRes = FileHandler.findInputFile(imgPath);
         if (fileRes.found) {
             try {
+                // Avoid duplicates if multiple references point to same file
+                if (loadedGlobalImagePaths.has(fileRes.filePath!)) continue;
+
                 const b64 = await FileHandler.readImageAsBase64(fileRes.filePath!);
                 globalReferenceImages.push({
                     data: b64,
                     mimeType: 'image/png' // Assuming png for simplicity, logic could be smarter
                 });
+                loadedGlobalImagePaths.add(fileRes.filePath!);
                 console.error(`DEBUG - Loaded global reference: ${imgPath}`);
             } catch (e) {
                 console.error(`DEBUG - Failed to load global ref ${imgPath}:`, e);
@@ -1066,9 +1071,10 @@ export class ImageGenerator {
       // Explicit Character Image (CLI Argument)
       if (request.characterImage) {
         const charRes = FileHandler.findInputFile(request.characterImage);
-        if (charRes.found) {
+        if (charRes.found && !loadedGlobalImagePaths.has(charRes.filePath!)) {
              const b64 = await FileHandler.readImageAsBase64(charRes.filePath!);
              globalReferenceImages.push({ data: b64, mimeType: 'image/png' });
+             loadedGlobalImagePaths.add(charRes.filePath!);
              globalContext += `\n\n(See attached character reference: ${request.characterImage})`;
         }
       } else if (request.storyFile) {
@@ -1145,9 +1151,16 @@ export class ImageGenerator {
                 // IMPORTANT: Check if file exists on disk
                 const existingRes = FileHandler.findInputFile(charAbsPath);
                 if (existingRes.found) {
+                    // Check for duplicates
+                    if (loadedGlobalImagePaths.has(existingRes.filePath!)) {
+                        console.error(`DEBUG - Character reference for ${charName} already loaded via global scan.`);
+                        continue; 
+                    }
+
                     try {
                         const b64 = await FileHandler.readImageAsBase64(existingRes.filePath!);
                         globalReferenceImages.push({ data: b64, mimeType: 'image/png' });
+                        loadedGlobalImagePaths.add(existingRes.filePath!);
                         console.error(`DEBUG - Loaded existing reference from text: ${charName}`);
                     } catch (e) {
                         console.error(`DEBUG - Failed to load existing reference for ${charName}:`, e);
@@ -1327,18 +1340,23 @@ export class ImageGenerator {
 
             if (charFullPath) {
                 // Add to current session refs
-                try {
-                    const b64 = await FileHandler.readImageAsBase64(charFullPath);
-                    globalReferenceImages.push({ data: b64, mimeType: 'image/png' });
-                    // Append link to the story file content
-                    // We need to determine the correct relative path based on what was selected
-                    const finalFilename = request.color ? `${safeName}_portrait_color.png` : `${safeName}_portrait.png`;
-                    const finalRelPath = path.join('characters', finalFilename);
-                    
-                    newStoryContent = newStoryContent.replace(fullMatchLine, `${fullMatchLine} ![${charName}](${finalRelPath})`);
-                    storyContentModified = true;
-                } catch (e) {
-                    console.error(`DEBUG - Error processing ${charName} image:`, e);
+                if (loadedGlobalImagePaths.has(charFullPath)) {
+                    // Already loaded
+                } else {
+                    try {
+                        const b64 = await FileHandler.readImageAsBase64(charFullPath);
+                        globalReferenceImages.push({ data: b64, mimeType: 'image/png' });
+                        loadedGlobalImagePaths.add(charFullPath);
+                        // Append link to the story file content
+                        // We need to determine the correct relative path based on what was selected
+                        const finalFilename = request.color ? `${safeName}_portrait_color.png` : `${safeName}_portrait.png`;
+                        const finalRelPath = path.join('characters', finalFilename);
+                        
+                        newStoryContent = newStoryContent.replace(fullMatchLine, `${fullMatchLine} ![${charName}](${finalRelPath})`);
+                        storyContentModified = true;
+                    } catch (e) {
+                        console.error(`DEBUG - Error processing ${charName} image:`, e);
+                    }
                 }
             }
         }
@@ -1393,9 +1411,13 @@ export class ImageGenerator {
                 // IMPORTANT: Even if the link exists, we MUST load it into memory for this session
                 const existingRes = FileHandler.findInputFile(charAbsPath);
                 if (existingRes.found) {
+                    if (loadedGlobalImagePaths.has(existingRes.filePath!)) {
+                        continue;
+                    }
                     try {
                         const b64 = await FileHandler.readImageAsBase64(existingRes.filePath!);
                         globalReferenceImages.push({ data: b64, mimeType: 'image/png' });
+                        loadedGlobalImagePaths.add(existingRes.filePath!);
                         console.error(`DEBUG - Loaded existing reference from text (Header): ${charName}`);
                     } catch (e) {
                         console.error(`DEBUG - Failed to load existing reference for ${charName}:`, e);
@@ -1537,16 +1559,19 @@ export class ImageGenerator {
             }
 
             if (charFullPath) {
-                try {
-                    const b64 = await FileHandler.readImageAsBase64(charFullPath);
-                    globalReferenceImages.push({ data: b64, mimeType: 'image/png' });
-                    console.error(`DEBUG - Registered ${charName} from header section.`);
-                    
-                    // Note: We don't auto-update the text file for Header sections as easily 
-                    // because appending the link might break the visual structure or bullets.
-                    // But since we registered it in globalReferenceImages, the generation will work.
-                } catch (e) {
-                    console.error(`DEBUG - Error processing ${charName} image:`, e);
+                if (!loadedGlobalImagePaths.has(charFullPath)) {
+                    try {
+                        const b64 = await FileHandler.readImageAsBase64(charFullPath);
+                        globalReferenceImages.push({ data: b64, mimeType: 'image/png' });
+                        loadedGlobalImagePaths.add(charFullPath);
+                        console.error(`DEBUG - Registered ${charName} from header section.`);
+                        
+                        // Note: We don't auto-update the text file for Header sections as easily 
+                        // because appending the link might break the visual structure or bullets.
+                        // But since we registered it in globalReferenceImages, the generation will work.
+                    } catch (e) {
+                        console.error(`DEBUG - Error processing ${charName} image:`, e);
+                    }
                 }
             }
         }
@@ -1708,6 +1733,7 @@ export class ImageGenerator {
 
         // Construct Prompt
         let fullPrompt = `${request.prompt}, ${ratioInstruction}\n\n[GLOBAL CONTEXT]\n${globalContext}\n\n[CURRENT PAGE: ${page.header}]\n${page.content}`;
+        fullPrompt += "\n\n[INSTRUCTION]\nUse the attached images as strict visual references for the characters defined in the Global Context. Maintain their specific appearance (hairstyle, clothing, features) consistently.";
         
         if (request.color) {
             fullPrompt += "\n\n[IMPORTANT STYLE OVERRIDE]\nGENERATE THIS PAGE IN FULL COLOR. IGNORE ANY PREVIOUS 'BLACK AND WHITE' INSTRUCTIONS.";
