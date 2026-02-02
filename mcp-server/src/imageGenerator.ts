@@ -317,6 +317,7 @@ export class ImageGenerator {
                   filename,
                 );
                 generatedFiles.push(fullPath);
+                await this.logGeneration(this.modelName, [fullPath]);
                 console.error('DEBUG - Image saved to:', fullPath);
                 break; // Only process first valid image per variation
               }
@@ -353,8 +354,6 @@ export class ImageGenerator {
 
       // Handle preview if requested
       await this.handlePreview(generatedFiles, request);
-
-      await this.logGeneration(this.modelName, generatedFiles);
 
       return {
         success: true,
@@ -493,6 +492,7 @@ export class ImageGenerator {
                     filename,
                   );
                   generatedFiles.push(fullPath);
+                  await this.logGeneration(this.modelName, [fullPath]);
                   console.error(`DEBUG - Step ${stepNumber} saved to:`, fullPath);
                   break;
                 }
@@ -544,8 +544,6 @@ export class ImageGenerator {
           ? `Successfully generated complete ${steps}-step ${type} sequence`
           : `Generated ${generatedFiles.length} out of ${steps} requested ${type} steps (${steps - generatedFiles.length} steps failed)`;
   
-        await this.logGeneration(this.modelName, generatedFiles);
-
         return {
           success: true,
           message: successMessage,
@@ -686,6 +684,7 @@ export class ImageGenerator {
                         if (b64) {
                             const fullPath = await FileHandler.saveImageFromBase64(b64, charsDir, bwFilename);
                             generatedFiles.push(fullPath);
+                            await this.logGeneration(this.modelName, [fullPath]);
                             console.error(`DEBUG - Saved B&W Sheet: ${fullPath}`);
                             break;
                         }
@@ -733,6 +732,7 @@ export class ImageGenerator {
                         if (b64) {
                             const fullPath = await FileHandler.saveImageFromBase64(b64, charsDir, colorFilename);
                             generatedFiles.push(fullPath);
+                            await this.logGeneration(this.modelName, [fullPath]);
                             console.error(`DEBUG - Saved Color Sheet: ${fullPath}`);
                             break;
                         }
@@ -745,7 +745,6 @@ export class ImageGenerator {
 
          if (generatedFiles.length > 0) {
              await this.handlePreview(generatedFiles, request);
-             await this.logGeneration(this.modelName, generatedFiles);
              return {
                  success: true,
                  message: `Successfully created character sheets for ${sourceName} in ${charsDir}`,
@@ -871,6 +870,7 @@ export class ImageGenerator {
                                 filename,
                             );
                             generatedFiles.push(fullPath);
+                            await this.logGeneration(this.modelName, [fullPath]);
                             previousGeneratedImagePath = fullPath; // Set for next iteration
                             console.error(`DEBUG - Saved: ${fullPath}`);
                             break; 
@@ -886,7 +886,6 @@ export class ImageGenerator {
 
         if (generatedFiles.length > 0) {
             await this.handlePreview(generatedFiles, request);
-            await this.logGeneration(this.modelName, generatedFiles);
             return {
                 success: true,
                 message: `Successfully processed ${generatedFiles.length} images from directory.`,
@@ -961,11 +960,10 @@ export class ImageGenerator {
                   outputPath,
                   filename,
                 );
+                await this.logGeneration(this.modelName, [fullPath]);
                 console.error('DEBUG - Edited manga page saved to:', fullPath);
                 
                 await this.handlePreview([fullPath], request);
-                
-                await this.logGeneration(this.modelName, [fullPath]);
 
                 return {
                   success: true,
@@ -1773,6 +1771,7 @@ export class ImageGenerator {
                     filename,
                   );
                   generatedFiles.push(fullPath);
+                  await this.logGeneration(this.modelName, [fullPath]);
                   previousPagePath = fullPath; // Update for next iteration
                   imageSaved = true;
                   console.error(`DEBUG - Generated ${page.header}: ${fullPath}`);
@@ -1799,7 +1798,6 @@ export class ImageGenerator {
 
       if (generatedFiles.length > 0) {
         await this.handlePreview(generatedFiles, request);
-        await this.logGeneration(this.modelName, generatedFiles);
         return {
           success: true,
           message: `Successfully generated ${generatedFiles.length} of ${pages.length} manga pages/panels.`,
