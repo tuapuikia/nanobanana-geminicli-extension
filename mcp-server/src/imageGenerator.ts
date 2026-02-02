@@ -1767,8 +1767,9 @@ export class ImageGenerator {
         const outputPath = FileHandler.ensureOutputDirectory();
         const fullExpectedPath = path.join(outputPath, expectedFilename);
 
-        if (fs.existsSync(fullExpectedPath)) {
-            console.error(`DEBUG - File already exists: ${fullExpectedPath}. Skipping generation.`);
+        // Only skip if NOT explicitly requested via --page
+        if (!request.page && fs.existsSync(fullExpectedPath)) {
+            console.error(`DEBUG - File already exists: ${fullExpectedPath}. Skipping generation (Resume Mode).`);
             previousPagePath = fullExpectedPath;
             generatedFiles.push(fullExpectedPath);
             continue;
