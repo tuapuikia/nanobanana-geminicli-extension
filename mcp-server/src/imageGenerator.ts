@@ -1097,7 +1097,8 @@ export class ImageGenerator {
 
         // 1. Parse Explicit Character List in Text
         // Matches: * **Name:** Description  OR  - **Name:** Description
-        const charListRegex = /^\s*[\*\-]\s*\*\*([^\*:]+)(?::)?\*\*\s*([^\n]+)$/gm;
+        // UPDATED: Now supports multi-line nested bullets (e.g. Visuals: ...)
+        const charListRegex = /^\s*[\*\-]\s*\*\*([^\*:\n]+)(?::)?\*\*(.*)$/gm;
         let charMatch;
         let storyContentModified = false;
         let newStoryContent = storyContent;
@@ -1107,7 +1108,47 @@ export class ImageGenerator {
         while ((charMatch = charListRegex.exec(globalContext)) !== null) {
             const fullMatchLine = charMatch[0];
             const charName = charMatch[1].trim();
-            const charDesc = charMatch[2].trim();
+            let charDesc = charMatch[2].trim();
+            
+            // Handle Multi-line/Nested Descriptions
+            // If the description on the same line is empty or very short, look for nested bullets
+            if (charDesc.length < 5) {
+                const nextLinesStartIndex = charMatch.index + charMatch[0].length;
+                const upcomingText = globalContext.substring(nextLinesStartIndex);
+                
+                // Look ahead for nested details
+                 // 1000 chars should be enough window to find the description
+                 const searchWindow = upcomingText.substring(0, 1000);
+                 
+                 // Aggregate all nested bullets until the next character definition
+                 const lines = searchWindow.split('\n');
+                 const descLines: string[] = [];
+                 
+                 // Get indentation of the parent character line to determine nesting
+                 const parentIndent = fullMatchLine.match(/^\s*/)?.[0].length || 0;
+
+                 for (const line of lines) {
+                     if (line.trim() === '') continue; // skip empty lines?
+                     
+                     // Stop if we hit a new top-level character definition or section
+                     if (line.match(/^\s*[\*\-]\s*\*\*/)) {
+                         const lineIndent = line.match(/^\s*/)?.[0].length || 0;
+                         if (lineIndent <= parentIndent) {
+                             break;
+                         }
+                     }
+                     if (line.match(/^#/)) break; // Section header
+                     
+                     // Clean up bullet points
+                     // We try to remove common property keys to keep the description clean, but keeping them is also fine.
+                     const cleaned = line.replace(/^\s*[\*\-]\s*(?:\*\*(?:Role|Vibe|Personality|Visuals|Appearance|Traits|Outfit|Features):\*\*)?/g, '').trim();
+                     if (cleaned) descLines.push(cleaned);
+                     
+                     // Safety break to prevent reading too much
+                     if (descLines.length > 20) break;
+                 }
+                 if (descLines.length > 0) charDesc = descLines.join(' ');
+            }
             
             // Section Validation: Check if we are inside a "Character" section
             const matchIndex = charMatch.index;
