@@ -692,7 +692,7 @@ export class ImageGenerator {
              - Adult (approx 25-40): Standard 1:7.5 to 1:8 head-to-body ratio, defined bone structure, balanced muscle tone.
              - Elder (70+): Slight natural spinal curvature (kyphosis), settled center of gravity, prominent joint articulation.
              ${request.style || 'shonen'} manga style, black and white, screentones, high quality line art.
-             Full body from head to toe (must include complete legs and shoes), neutral pose, white background.`;
+             Full body from head to toe (must include complete legs and shoes), neutral pose, white background. DO NOT SQUASH or compress the figure vertically. Ensure legs are long and anatomically correct. Avoid chibi, dwarf, or super-deformed proportions.`;
 
              try {
                 const bwResponse = await this.ai.models.generateContent({
@@ -748,7 +748,7 @@ export class ImageGenerator {
              Capture the facial features, hairstyle, and clothing details from the reference accurately.
              GENERATE IN FULL COLOR. Vibrant colors, detailed shading.
              Anime/Manga style.
-             Full body from head to toe (must include complete legs and shoes), neutral pose, white background.`;
+             Full body from head to toe (must include complete legs and shoes), neutral pose, white background. DO NOT SQUASH or compress the figure vertically. Ensure legs are long and anatomically correct. Avoid chibi, dwarf, or super-deformed proportions.`;
 
              try {
                 const colorRefData = bwRefBase64 || sourceB64;
@@ -1337,7 +1337,7 @@ export class ImageGenerator {
                          - Elder (70+): Slight natural spinal curvature (kyphosis), settled center of gravity, prominent joint articulation.
                          ${sourceImageB64 ? 'Use the attached image as the visual source for the character\'s appearance.' : ''}
                          ${request.style || 'shonen'} manga style, black and white, screentones, high quality line art.
-                         Full body from head to toe (must include complete legs and shoes), neutral pose, white background.`;
+                         Full body from head to toe (must include complete legs and shoes), neutral pose, white background. DO NOT SQUASH or compress the figure vertically. Ensure legs are long and anatomically correct. Avoid chibi, dwarf, or super-deformed proportions.`;
                          
                          const bwParts: any[] = [{ text: bwPrompt }];
                          if (sourceImageB64) {
@@ -1389,7 +1389,7 @@ export class ImageGenerator {
                                 Ensure the character appeal and details strictly follow the guidelines provided in the user story file description.
                                 GENERATE IN FULL COLOR. Vibrant colors, detailed shading.
                                 Use the attached B&W image as the STRICT reference for line art and design. Colorize it accurately.
-                                Full body from head to toe (must include complete legs and shoes), neutral pose, white background.`;
+                                Full body from head to toe (must include complete legs and shoes), neutral pose, white background. DO NOT SQUASH or compress the figure vertically. Ensure legs are long and anatomically correct. Avoid chibi, dwarf, or super-deformed proportions.`;
 
                                 try {
                                     const colorResponse = await this.ai.models.generateContent({
@@ -1585,7 +1585,7 @@ export class ImageGenerator {
                                                   - Adult (approx 25-40): Standard 1:7.5 to 1:8 head-to-body ratio, defined bone structure, balanced muscle tone.
                                                   - Elder (70+): Slight natural spinal curvature (kyphosis), settled center of gravity, prominent joint articulation.
                                                   ${request.style || 'shonen'} manga style, black and white, screentones, high quality line art.
-                                                  Full body from head to toe (must include complete legs and shoes), neutral pose, white background.`;                         
+                                                  Full body from head to toe (must include complete legs and shoes), neutral pose, white background. DO NOT SQUASH or compress the figure vertically. Ensure legs are long and anatomically correct. Avoid chibi, dwarf, or super-deformed proportions.`;                         
                          try {
                             const bwResponse = await this.ai.models.generateContent({
                                 model: this.modelName,
@@ -1626,7 +1626,7 @@ export class ImageGenerator {
                                 GENERATE IN FULL COLOR. Vibrant colors, detailed shading.
                                 Use the attached B&W image as the STRICT reference.
                                 Include the following views: Front view, Left profile view, Right profile view, and Back view. Order them: Front, Left, Right, Back side-by-side in a wide format.
-                                Full body from head to toe (must include complete legs and shoes), neutral pose, white background.`;
+                                Full body from head to toe (must include complete legs and shoes), neutral pose, white background. DO NOT SQUASH or compress the figure vertically. Ensure legs are long and anatomically correct. Avoid chibi, dwarf, or super-deformed proportions.`;
 
                                 try {
                                     const colorResponse = await this.ai.models.generateContent({
