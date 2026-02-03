@@ -685,12 +685,16 @@ export class ImageGenerator {
              }
          } else {
              console.error(`DEBUG - Generating B&W Character Sheet for ${safeName}...`);
-             const bwPrompt = `Character Design Sheet (Wide Landscape 16:9): ${sourceName}.
-             Create a wide, landscape-oriented full body character design sheet.
+             const layoutPrompt = request.layout === 'strip' ? 'Wide Landscape 16:9' : (request.layout === 'webtoon' ? 'Tall Vertical 9:16' : (request.layout === 'single_page' ? 'Portrait 3:4' : 'Square 1:1'));
+             const viewsPrompt = request.layout === 'strip' ? 
+                `Include the following views: Front view, Left profile view, Right profile view, and Back view. Order them: Front, Left, Right, Back side-by-side.` : 
+                `Include the following views: Front view and Back view. Order them: Front and Back side-by-side.`;
+
+             const bwPrompt = `Character Design Sheet (${layoutPrompt}): ${sourceName}.
+             Create a character design sheet with ${layoutPrompt} orientation.
              IMPORTANT: You MUST use the attached reference photo as the PRIMARY source for the character's physical appearance (face, body type, hair, clothing). The output character must look exactly like the person in the reference photo.
              ${characterDescription ? `Story Context: "${characterDescription}". Merge these traits with the visual reference, but prioritize the reference image for physical likeness.` : ''}
-             Include the following views: Front view, Left profile view, Right profile view, and Back view. Ensure strict consistency: The Right profile must be the opposite side of the Left profile.
-             Order them: Front, Left, Right, Back side-by-side in a wide format.
+             ${viewsPrompt}
              Capture the facial features, hairstyle, and clothing details from the photo accurately but stylized.
              Determine the character's age category based on the reference image and apply the corresponding anatomical guidelines:
              - Child (approx 7-10): Head-to-body ratio 1:6, softer jawlines, shorter/slender limbs.
@@ -704,7 +708,7 @@ export class ImageGenerator {
                     model: this.modelName,
                     config: {
                       responseModalities: ['IMAGE', 'TEXT'],
-                      imageConfig: { aspectRatio: '16:9' },
+                      imageConfig: { aspectRatio: this.getAspectRatioString(request.layout) },
                       safetySettings: this.getSafetySettings(),
                     } as any,
                     contents: [{ role: 'user', parts: [
@@ -743,13 +747,17 @@ export class ImageGenerator {
              generatedFiles.push(colorFullPath);
          } else {
              console.error(`DEBUG - Generating Color Character Sheet for ${safeName}...`);
-             const colorPrompt = `Character Design Sheet (Wide Landscape 16:9): ${sourceName}.
-             Create a wide, landscape-oriented full body character design sheet.
+             const layoutPrompt = request.layout === 'strip' ? 'Wide Landscape 16:9' : (request.layout === 'webtoon' ? 'Tall Vertical 9:16' : (request.layout === 'single_page' ? 'Portrait 3:4' : 'Square 1:1'));
+             const viewsPrompt = request.layout === 'strip' ? 
+                `Include the following views: Front view, Left profile view, Right profile view, and Back view. Order them: Front, Left, Right, Back side-by-side.` : 
+                `Include the following views: Front view and Back view. Order them: Front and Back side-by-side.`;
+
+             const colorPrompt = `Character Design Sheet (${layoutPrompt}): ${sourceName}.
+             Create a character design sheet with ${layoutPrompt} orientation.
              IMPORTANT: You MUST use the attached B&W character sheet as the STRICT reference for line art, pose, and design. Colorize it accurately.
              ${characterDescription ? `Story Context: "${characterDescription}".` : ''}
              The output must match the B&W reference exactly in terms of poses and layout.
-             Include the following views: Front view, Left profile view, Right profile view, and Back view. Ensure strict consistency: The Right profile must be the opposite side of the Left profile.
-             Order them: Front, Left, Right, Back side-by-side in a wide format.
+             ${viewsPrompt}
              Capture the facial features, hairstyle, and clothing details from the reference accurately.
              GENERATE IN FULL COLOR. Vibrant colors, detailed shading.
              Anime/Manga style.
@@ -761,7 +769,7 @@ export class ImageGenerator {
                     model: this.modelName,
                     config: {
                       responseModalities: ['IMAGE', 'TEXT'],
-                      imageConfig: { aspectRatio: '16:9' },
+                      imageConfig: { aspectRatio: this.getAspectRatioString(request.layout) },
                       safetySettings: this.getSafetySettings(),
                     } as any,
                     contents: [{ role: 'user', parts: [
@@ -884,10 +892,16 @@ export class ImageGenerator {
                      }
                 }
                 
+                const aspectRatio = this.getAspectRatioString(request.layout);
+                console.error(`DEBUG - Generating with Aspect Ratio: ${aspectRatio}`);
+
                 const response = await this.ai.models.generateContent({
                     model: this.modelName,
                     config: {
                       responseModalities: ['IMAGE', 'TEXT'],
+                      imageConfig: {
+                        aspectRatio: this.getAspectRatioString(request.layout),
+                      },
                       safetySettings: this.getSafetySettings(),
                     } as any,
                     contents: [
@@ -972,8 +986,18 @@ export class ImageGenerator {
         const editPrompt = `${request.prompt}. Maintain the original composition and content structure while applying the requested style and details.`;
 
         try {
+          const aspectRatio = this.getAspectRatioString(request.layout);
+          console.error(`DEBUG - Generating with Aspect Ratio: ${aspectRatio}`);
+
           const response = await this.ai.models.generateContent({
-            model: this.modelName, config: { safetySettings: this.getSafetySettings() } as any,
+            model: this.modelName,
+            config: {
+              responseModalities: ['IMAGE', 'TEXT'],
+              imageConfig: {
+                aspectRatio: this.getAspectRatioString(request.layout),
+              },
+              safetySettings: this.getSafetySettings(),
+            } as any,
             contents: [
               {
                 role: 'user',
@@ -1332,9 +1356,13 @@ export class ImageGenerator {
                          }
 
                          console.error(`DEBUG - Generating BASE B&W ref for ${charName}...`);
-                         const bwPrompt = `Character Design Sheet (Wide Landscape 16:9): ${charName}. ${charDesc}. 
-                         Include the following views: Front view, Left profile view, Right profile view, and Back view. Ensure strict consistency: The Right profile must be the opposite side of the Left profile.
-                         Order them: Front, Left, Right, Back side-by-side in a wide format.
+                         const layoutPrompt = request.layout === 'strip' ? 'Wide Landscape 16:9' : (request.layout === 'webtoon' ? 'Tall Vertical 9:16' : (request.layout === 'single_page' ? 'Portrait 3:4' : 'Square 1:1'));
+                         const viewsPrompt = request.layout === 'strip' ? 
+                            `Include the following views: Front view, Left profile view, Right profile view, and Back view. Order them: Front, Left, Right, Back side-by-side.` : 
+                            `Include the following views: Front view and Back view. Order them: Front and Back side-by-side.`;
+
+                         const bwPrompt = `Character Design Sheet (${layoutPrompt}): ${charName}. ${charDesc}. 
+                         ${viewsPrompt}
                          Ensure the character appeal and details strictly follow the guidelines provided in the user story file description.
                          Determine the character's age category based on the description and apply the corresponding anatomical guidelines:
                          - Child (approx 7-10): Head-to-body ratio 1:6, softer jawlines, shorter/slender limbs.
@@ -1354,7 +1382,7 @@ export class ImageGenerator {
                                 model: this.modelName,
                                 config: {
                                   responseModalities: ['IMAGE', 'TEXT'],
-                                  imageConfig: { aspectRatio: '16:9' },
+                                  imageConfig: { aspectRatio: this.getAspectRatioString(request.layout) },
                                   safetySettings: this.getSafetySettings(),
                                 } as any,
                                 contents: [{ role: 'user', parts: bwParts }],
@@ -1388,12 +1416,16 @@ export class ImageGenerator {
                         if (!colorRes.found) {
                             if (request.autoGenerateCharacters) {
                                 console.error(`DEBUG - Generating Color ref for ${charName} (using B&W base)...`);
-                                const colorPrompt = `Character Design Sheet (Wide Landscape 16:9): ${charName}. ${charDesc}. 
-                                Include the following views: Front view, Left profile view, Right profile view, and Back view. Ensure strict consistency: The Right profile must be the opposite side of the Left profile.
-                                Order them: Front, Left, Right, Back side-by-side in a wide format.
-                                Ensure the character appeal and details strictly follow the guidelines provided in the user story file description.
+                                const layoutPrompt = request.layout === 'strip' ? 'Wide Landscape 16:9' : (request.layout === 'webtoon' ? 'Tall Vertical 9:16' : (request.layout === 'single_page' ? 'Portrait 3:4' : 'Square 1:1'));
+                                const viewsPrompt = request.layout === 'strip' ? 
+                                    `Include the following views: Front view, Left profile view, Right profile view, and Back view. Order them: Front, Left, Right, Back side-by-side.` : 
+                                    `Include the following views: Front view and Back view. Order them: Front and Back side-by-side.`;
+
+                                const colorPrompt = `Character Design Sheet (${layoutPrompt}): ${charName}. ${charDesc}. 
                                 GENERATE IN FULL COLOR. Vibrant colors, detailed shading.
                                 Use the attached B&W image as the STRICT reference for line art and design. Colorize it accurately.
+                                ${viewsPrompt}
+                                Ensure the character appeal and details strictly follow the guidelines provided in the user story file description.
                                 Full body from head to toe (must include complete legs and shoes), neutral pose, white background. DO NOT SQUASH or compress the figure vertically. Ensure legs are long and anatomically correct. Avoid chibi, dwarf, or super-deformed proportions. Zoom out to fit the entire character within the frame. Leave ample white space margin around the character to prevent cropping of feet or head.`;
 
                                 try {
@@ -1401,7 +1433,7 @@ export class ImageGenerator {
                                         model: this.modelName,
                                         config: {
                                           responseModalities: ['IMAGE', 'TEXT'],
-                                          imageConfig: { aspectRatio: '16:9' },
+                                          imageConfig: { aspectRatio: this.getAspectRatioString(request.layout) },
                                           safetySettings: this.getSafetySettings(),
                                         } as any,
                                         contents: [{ role: 'user', parts: [
@@ -1581,9 +1613,13 @@ export class ImageGenerator {
                          try { sourceBwImageBase64 = await FileHandler.readImageAsBase64(bwRes.filePath!); } catch (e) {}
                     } else if (request.autoGenerateCharacters) {
                          console.error(`DEBUG - Generating BASE B&W ref for ${charName}...`);
-                                                  const bwPrompt = `Character Design Sheet (Wide Landscape 16:9): ${charName}. ${charDesc}.
-                                                  Include the following views: Front view, Left profile view, Right profile view, and Back view. Ensure strict consistency: The Right profile must be the opposite side of the Left profile.
-                                  Order them: Front, Left, Right, Back side-by-side in a wide format.
+                                                  const layoutPrompt = request.layout === 'strip' ? 'Wide Landscape 16:9' : (request.layout === 'webtoon' ? 'Tall Vertical 9:16' : (request.layout === 'single_page' ? 'Portrait 3:4' : 'Square 1:1'));
+                                                  const viewsPrompt = request.layout === 'strip' ? 
+                                                    `Include the following views: Front view, Left profile view, Right profile view, and Back view. Order them: Front, Left, Right, Back side-by-side.` : 
+                                                    `Include the following views: Front view and Back view. Order them: Front and Back side-by-side.`;
+
+                                                  const bwPrompt = `Character Design Sheet (${layoutPrompt}): ${charName}. ${charDesc}.
+                                                  ${viewsPrompt}
                                                   Ensure the character appeal and details strictly follow the guidelines provided in the user story file description.
                                                   Determine the character's age category based on the description and apply the corresponding anatomical guidelines:
                                                   - Child (approx 7-10): Head-to-body ratio 1:6, softer jawlines, shorter/slender limbs.
@@ -1596,7 +1632,7 @@ export class ImageGenerator {
                                 model: this.modelName,
                                 config: {
                                   responseModalities: ['IMAGE', 'TEXT'],
-                                  imageConfig: { aspectRatio: '16:9' },
+                                  imageConfig: { aspectRatio: this.getAspectRatioString(request.layout) },
                                   safetySettings: this.getSafetySettings(),
                                 } as any,
                                 contents: [{ role: 'user', parts: [{ text: bwPrompt }] }],
@@ -1627,10 +1663,15 @@ export class ImageGenerator {
                         if (!colorRes.found) {
                             if (request.autoGenerateCharacters) {
                                 console.error(`DEBUG - Generating Color ref for ${charName}...`);
-                                const colorPrompt = `Character Design Sheet (Wide Landscape 16:9): ${charName}. ${charDesc}. 
+                                const layoutPrompt = request.layout === 'strip' ? 'Wide Landscape 16:9' : (request.layout === 'webtoon' ? 'Tall Vertical 9:16' : (request.layout === 'single_page' ? 'Portrait 3:4' : 'Square 1:1'));
+                                const viewsPrompt = request.layout === 'strip' ? 
+                                    `Include the following views: Front view, Left profile view, Right profile view, and Back view. Order them: Front, Left, Right, Back side-by-side.` : 
+                                    `Include the following views: Front view and Back view. Order them: Front and Back side-by-side.`;
+
+                                const colorPrompt = `Character Design Sheet (${layoutPrompt}): ${charName}. ${charDesc}. 
                                 GENERATE IN FULL COLOR. Vibrant colors, detailed shading.
                                 Use the attached B&W image as the STRICT reference.
-                                Include the following views: Front view, Left profile view, Right profile view, and Back view. Order them: Front, Left, Right, Back side-by-side in a wide format.
+                                ${viewsPrompt}
                                 Full body from head to toe (must include complete legs and shoes), neutral pose, white background. DO NOT SQUASH or compress the figure vertically. Ensure legs are long and anatomically correct. Avoid chibi, dwarf, or super-deformed proportions. Zoom out to fit the entire character within the frame. Leave ample white space margin around the character to prevent cropping of feet or head.`;
 
                                 try {
@@ -1638,7 +1679,7 @@ export class ImageGenerator {
                                         model: this.modelName,
                                         config: {
                                           responseModalities: ['IMAGE', 'TEXT'],
-                                          imageConfig: { aspectRatio: '16:9' },
+                                          imageConfig: { aspectRatio: this.getAspectRatioString(request.layout) },
                                           safetySettings: this.getSafetySettings(),
                                         } as any,
                                         contents: [{ role: 'user', parts: [
@@ -1943,10 +1984,12 @@ export class ImageGenerator {
             const logDir = FileHandler.ensureOutputDirectory();
             const logFile = path.join(logDir, 'nanobanana-output.log');
             const timestamp = new Date().toISOString();
-            const logEntry = `[${timestamp}] Generating ${page.header}. Attached References: ${includedImages.join(', ')}\n`;
+            const aspectRatio = this.getAspectRatioString(request.layout);
+            const logEntry = `[${timestamp}] Generating ${page.header}. Aspect Ratio: ${aspectRatio}. Attached References: ${includedImages.join(', ')}\n`;
             
             await fs.promises.appendFile(logFile, logEntry, 'utf-8');
             console.error(`DEBUG - Logged attached references to ${logFile}`);
+            console.error(`DEBUG - Generating with Aspect Ratio: ${aspectRatio}`);
 
         } catch (e) {
             console.error('DEBUG - Failed to log attached references:', e);
