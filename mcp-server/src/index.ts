@@ -719,7 +719,7 @@ class NanoBananaServer {
   private buildMangaPrompt(args?: MangaPromptArgs): string {
     const basePrompt = args?.prompt || 'Manga page';
     const style = args?.style || 'shonen';
-    const layout = args?.layout || 'single_page';
+    const layout = args?.layout || 'square';
     const isColor = args?.color || false;
 
     let prompt = `${basePrompt}, ${style} manga style, ${layout} layout`;
