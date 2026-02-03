@@ -687,6 +687,7 @@ export class ImageGenerator {
              Include the following views: Front view, Left profile view, Right profile view, and Back view. Ensure strict consistency: The Right profile must be the opposite side of the Left profile.
              Order them: Front, Left, Right, Back side-by-side in a wide format.
              Capture the facial features, hairstyle, and clothing details from the photo accurately but stylized.
+             Maintain correct anatomical proportions appropriate for the character's age and body type (e.g., 4-6 heads for children, 7-8 for adults, slightly shorter/stooped for elderly if applicable).
              ${request.style || 'shonen'} manga style, black and white, screentones, high quality line art.
              Full body, neutral pose, white background.`;
 
