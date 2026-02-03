@@ -675,8 +675,9 @@ export class ImageGenerator {
          } else {
              console.error(`DEBUG - Generating B&W Character Sheet for ${safeName}...`);
              const bwPrompt = `Character Design Sheet (Wide Landscape 16:9): ${sourceName}.
-             Create a wide, landscape-oriented full body character design sheet based on the attached reference photo.
-             ${characterDescription ? `Character Description from Story: "${characterDescription}". Ensure these traits are reflected.` : ''}
+             Create a wide, landscape-oriented full body character design sheet.
+             IMPORTANT: You MUST use the attached reference photo as the PRIMARY source for the character's physical appearance (face, body type, hair, clothing). The output character must look exactly like the person in the reference photo.
+             ${characterDescription ? `Story Context: "${characterDescription}". Merge these traits with the visual reference, but prioritize the reference image for physical likeness.` : ''}
              Include the following views: Front view, Left profile view, Right profile view, and Back view. Ensure strict consistency: The Right profile must be the opposite side of the Left profile.
              Order them: Front, Left, Right, Back side-by-side in a wide format.
              Capture the facial features, hairstyle, and clothing details from the photo accurately but stylized.
@@ -727,8 +728,9 @@ export class ImageGenerator {
          } else {
              console.error(`DEBUG - Generating Color Character Sheet for ${safeName}...`);
              const colorPrompt = `Character Design Sheet (Wide Landscape 16:9): ${sourceName}.
-             Create a wide, landscape-oriented full body character design sheet based on the attached reference photo.
-             ${characterDescription ? `Character Description from Story: "${characterDescription}". Ensure these traits are reflected.` : ''}
+             Create a wide, landscape-oriented full body character design sheet.
+             IMPORTANT: You MUST use the attached reference photo as the PRIMARY source for the character's physical appearance (face, body type, hair, clothing). The output character must look exactly like the person in the reference photo.
+             ${characterDescription ? `Story Context: "${characterDescription}". Merge these traits with the visual reference, but prioritize the reference image for physical likeness.` : ''}
              Include the following views: Front view, Left profile view, Right profile view, and Back view. Ensure strict consistency: The Right profile must be the opposite side of the Left profile.
              Order them: Front, Left, Right, Back side-by-side in a wide format.
              Capture the facial features, hairstyle, and clothing details from the photo accurately.
