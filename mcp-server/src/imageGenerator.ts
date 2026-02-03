@@ -688,6 +688,7 @@ export class ImageGenerator {
                     model: this.modelName,
                     config: {
                       responseModalities: ['IMAGE', 'TEXT'],
+                      imageConfig: { aspectRatio: '16:9' },
                       safetySettings: this.getSafetySettings(),
                     } as any,
                     contents: [{ role: 'user', parts: [
@@ -740,6 +741,7 @@ export class ImageGenerator {
                     model: this.modelName,
                     config: {
                       responseModalities: ['IMAGE', 'TEXT'],
+                      imageConfig: { aspectRatio: '16:9' },
                       safetySettings: this.getSafetySettings(),
                     } as any,
                     contents: [{ role: 'user', parts: [
@@ -1328,6 +1330,7 @@ export class ImageGenerator {
                                 model: this.modelName,
                                 config: {
                                   responseModalities: ['IMAGE', 'TEXT'],
+                                  imageConfig: { aspectRatio: '16:9' },
                                   safetySettings: this.getSafetySettings(),
                                 } as any,
                                 contents: [{ role: 'user', parts: bwParts }],
@@ -1374,6 +1377,7 @@ export class ImageGenerator {
                                         model: this.modelName,
                                         config: {
                                           responseModalities: ['IMAGE', 'TEXT'],
+                                          imageConfig: { aspectRatio: '16:9' },
                                           safetySettings: this.getSafetySettings(),
                                         } as any,
                                         contents: [{ role: 'user', parts: [
@@ -1565,6 +1569,7 @@ export class ImageGenerator {
                                 model: this.modelName,
                                 config: {
                                   responseModalities: ['IMAGE', 'TEXT'],
+                                  imageConfig: { aspectRatio: '16:9' },
                                   safetySettings: this.getSafetySettings(),
                                 } as any,
                                 contents: [{ role: 'user', parts: [{ text: bwPrompt }] }],
@@ -1606,6 +1611,7 @@ export class ImageGenerator {
                                         model: this.modelName,
                                         config: {
                                           responseModalities: ['IMAGE', 'TEXT'],
+                                          imageConfig: { aspectRatio: '16:9' },
                                           safetySettings: this.getSafetySettings(),
                                         } as any,
                                         contents: [{ role: 'user', parts: [
