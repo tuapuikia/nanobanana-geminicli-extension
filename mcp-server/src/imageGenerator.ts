@@ -674,11 +674,11 @@ export class ImageGenerator {
              generatedFiles.push(bwFullPath);
          } else {
              console.error(`DEBUG - Generating B&W Character Sheet for ${safeName}...`);
-             const bwPrompt = `Character Design Sheet: ${sourceName}.
-             Create a full body character design sheet based on the attached reference photo.
+             const bwPrompt = `Character Design Sheet (Wide Landscape 16:9): ${sourceName}.
+             Create a wide, landscape-oriented full body character design sheet based on the attached reference photo.
              ${characterDescription ? `Character Description from Story: "${characterDescription}". Ensure these traits are reflected.` : ''}
              Include the following views: Front view, Left profile view, Right profile view, and Back view. Ensure strict consistency: The Right profile must be the opposite side of the Left profile.
-             Order them: Front, Left, Right, Back.
+             Order them: Front, Left, Right, Back side-by-side in a wide format.
              Capture the facial features, hairstyle, and clothing details from the photo accurately but stylized.
              ${request.style || 'shonen'} manga style, black and white, screentones, high quality line art.
              Full body, neutral pose, white background.`;
@@ -726,11 +726,11 @@ export class ImageGenerator {
              generatedFiles.push(colorFullPath);
          } else {
              console.error(`DEBUG - Generating Color Character Sheet for ${safeName}...`);
-             const colorPrompt = `Character Design Sheet: ${sourceName}.
-             Create a full body character design sheet based on the attached reference photo.
+             const colorPrompt = `Character Design Sheet (Wide Landscape 16:9): ${sourceName}.
+             Create a wide, landscape-oriented full body character design sheet based on the attached reference photo.
              ${characterDescription ? `Character Description from Story: "${characterDescription}". Ensure these traits are reflected.` : ''}
              Include the following views: Front view, Left profile view, Right profile view, and Back view. Ensure strict consistency: The Right profile must be the opposite side of the Left profile.
-             Order them: Front, Left, Right, Back.
+             Order them: Front, Left, Right, Back side-by-side in a wide format.
              Capture the facial features, hairstyle, and clothing details from the photo accurately.
              GENERATE IN FULL COLOR. Vibrant colors, detailed shading.
              Anime/Manga style.
@@ -1312,9 +1312,9 @@ export class ImageGenerator {
                          }
 
                          console.error(`DEBUG - Generating BASE B&W ref for ${charName}...`);
-                         const bwPrompt = `Character Design Sheet: ${charName}. ${charDesc}. 
+                         const bwPrompt = `Character Design Sheet (Wide Landscape 16:9): ${charName}. ${charDesc}. 
                          Include the following views: Front view, Left profile view, Right profile view, and Back view. Ensure strict consistency: The Right profile must be the opposite side of the Left profile.
-                         Order them: Front, Left, Right, Back.
+                         Order them: Front, Left, Right, Back side-by-side in a wide format.
                          Ensure the character appeal and details strictly follow the guidelines provided in the user story file description.
                          ${sourceImageB64 ? 'Use the attached image as the visual source for the character\'s appearance.' : ''}
                          ${request.style || 'shonen'} manga style, black and white, screentones, high quality line art.
@@ -1364,9 +1364,9 @@ export class ImageGenerator {
                         if (!colorRes.found) {
                             if (request.autoGenerateCharacters) {
                                 console.error(`DEBUG - Generating Color ref for ${charName} (using B&W base)...`);
-                                const colorPrompt = `Character Design Sheet: ${charName}. ${charDesc}. 
+                                const colorPrompt = `Character Design Sheet (Wide Landscape 16:9): ${charName}. ${charDesc}. 
                                 Include the following views: Front view, Left profile view, Right profile view, and Back view. Ensure strict consistency: The Right profile must be the opposite side of the Left profile.
-                                Order them: Front, Left, Right, Back.
+                                Order them: Front, Left, Right, Back side-by-side in a wide format.
                                 Ensure the character appeal and details strictly follow the guidelines provided in the user story file description.
                                 GENERATE IN FULL COLOR. Vibrant colors, detailed shading.
                                 Use the attached B&W image as the STRICT reference for line art and design. Colorize it accurately.
@@ -1557,13 +1557,12 @@ export class ImageGenerator {
                          try { sourceBwImageBase64 = await FileHandler.readImageAsBase64(bwRes.filePath!); } catch (e) {}
                     } else if (request.autoGenerateCharacters) {
                          console.error(`DEBUG - Generating BASE B&W ref for ${charName}...`);
-                         const bwPrompt = `Character Design Sheet: ${charName}. ${charDesc}. 
-                         Include the following views: Front view, Left profile view, Right profile view, and Back view. Ensure strict consistency: The Right profile must be the opposite side of the Left profile.
-         Order them: Front, Left, Right, Back.
-                         Ensure the character appeal and details strictly follow the guidelines provided in the user story file description.
-                         ${request.style || 'shonen'} manga style, black and white, screentones, high quality line art.
-                         Full body, neutral pose, white background.`;
-                         
+                                                  const bwPrompt = `Character Design Sheet (Wide Landscape 16:9): ${charName}. ${charDesc}.
+                                                  Include the following views: Front view, Left profile view, Right profile view, and Back view. Ensure strict consistency: The Right profile must be the opposite side of the Left profile.
+                                  Order them: Front, Left, Right, Back side-by-side in a wide format.
+                                                  Ensure the character appeal and details strictly follow the guidelines provided in the user story file description.
+                                                  ${request.style || 'shonen'} manga style, black and white, screentones, high quality line art.
+                                                  Full body, neutral pose, white background.`;                         
                          try {
                             const bwResponse = await this.ai.models.generateContent({
                                 model: this.modelName,
@@ -1600,10 +1599,10 @@ export class ImageGenerator {
                         if (!colorRes.found) {
                             if (request.autoGenerateCharacters) {
                                 console.error(`DEBUG - Generating Color ref for ${charName}...`);
-                                const colorPrompt = `Character Design Sheet: ${charName}. ${charDesc}. 
+                                const colorPrompt = `Character Design Sheet (Wide Landscape 16:9): ${charName}. ${charDesc}. 
                                 GENERATE IN FULL COLOR. Vibrant colors, detailed shading.
                                 Use the attached B&W image as the STRICT reference.
-                                Include the following views: Front view, Left profile view, Right profile view, and Back view.
+                                Include the following views: Front view, Left profile view, Right profile view, and Back view. Order them: Front, Left, Right, Back side-by-side in a wide format.
                                 Full body, neutral pose, white background.`;
 
                                 try {
