@@ -283,7 +283,11 @@ export class ImageGenerator {
         try {
           // Make API call for each variation
           const response = await this.ai.models.generateContent({
-            model: this.modelName, config: { safetySettings: this.getSafetySettings() } as any,
+            model: this.modelName,
+            config: {
+              responseModalities: ['IMAGE', 'TEXT'],
+              safetySettings: this.getSafetySettings(),
+            } as any,
             contents: [
               {
                 role: 'user',
@@ -470,7 +474,11 @@ export class ImageGenerator {
   
           try {
             const response = await this.ai.models.generateContent({
-              model: this.modelName, config: { safetySettings: this.getSafetySettings() } as any,
+              model: this.modelName,
+              config: {
+                responseModalities: ['IMAGE', 'TEXT'],
+                safetySettings: this.getSafetySettings(),
+              } as any,
               contents: [
                 {
                   role: 'user',
@@ -677,7 +685,11 @@ export class ImageGenerator {
 
              try {
                 const bwResponse = await this.ai.models.generateContent({
-                    model: this.modelName, config: { safetySettings: this.getSafetySettings() } as any,
+                    model: this.modelName,
+                    config: {
+                      responseModalities: ['IMAGE', 'TEXT'],
+                      safetySettings: this.getSafetySettings(),
+                    } as any,
                     contents: [{ role: 'user', parts: [
                         { text: bwPrompt },
                         { inlineData: { data: sourceB64, mimeType: 'image/png' } }
@@ -725,7 +737,11 @@ export class ImageGenerator {
 
              try {
                 const colorResponse = await this.ai.models.generateContent({
-                    model: this.modelName, config: { safetySettings: this.getSafetySettings() } as any,
+                    model: this.modelName,
+                    config: {
+                      responseModalities: ['IMAGE', 'TEXT'],
+                      safetySettings: this.getSafetySettings(),
+                    } as any,
                     contents: [{ role: 'user', parts: [
                         { text: colorPrompt },
                         { inlineData: { data: sourceB64, mimeType: 'image/png' } }
@@ -847,7 +863,11 @@ export class ImageGenerator {
                 }
                 
                 const response = await this.ai.models.generateContent({
-                    model: this.modelName, config: { safetySettings: this.getSafetySettings() } as any,
+                    model: this.modelName,
+                    config: {
+                      responseModalities: ['IMAGE', 'TEXT'],
+                      safetySettings: this.getSafetySettings(),
+                    } as any,
                     contents: [
                       {
                         role: 'user',
@@ -1305,7 +1325,11 @@ export class ImageGenerator {
 
                          try {
                             const bwResponse = await this.ai.models.generateContent({
-                                model: this.modelName, config: { safetySettings: this.getSafetySettings() } as any,
+                                model: this.modelName,
+                                config: {
+                                  responseModalities: ['IMAGE', 'TEXT'],
+                                  safetySettings: this.getSafetySettings(),
+                                } as any,
                                 contents: [{ role: 'user', parts: bwParts }],
                             });
 
@@ -1347,7 +1371,11 @@ export class ImageGenerator {
 
                                 try {
                                     const colorResponse = await this.ai.models.generateContent({
-                                        model: this.modelName, config: { safetySettings: this.getSafetySettings() } as any,
+                                        model: this.modelName,
+                                        config: {
+                                          responseModalities: ['IMAGE', 'TEXT'],
+                                          safetySettings: this.getSafetySettings(),
+                                        } as any,
                                         contents: [{ role: 'user', parts: [
                                             { text: colorPrompt },
                                             { inlineData: { data: sourceBwImageBase64, mimeType: 'image/png' } }
@@ -1534,7 +1562,11 @@ export class ImageGenerator {
                          
                          try {
                             const bwResponse = await this.ai.models.generateContent({
-                                model: this.modelName, config: { safetySettings: this.getSafetySettings() } as any,
+                                model: this.modelName,
+                                config: {
+                                  responseModalities: ['IMAGE', 'TEXT'],
+                                  safetySettings: this.getSafetySettings(),
+                                } as any,
                                 contents: [{ role: 'user', parts: [{ text: bwPrompt }] }],
                             });
                             // Save logic...
@@ -1571,7 +1603,11 @@ export class ImageGenerator {
 
                                 try {
                                     const colorResponse = await this.ai.models.generateContent({
-                                        model: this.modelName, config: { safetySettings: this.getSafetySettings() } as any,
+                                        model: this.modelName,
+                                        config: {
+                                          responseModalities: ['IMAGE', 'TEXT'],
+                                          safetySettings: this.getSafetySettings(),
+                                        } as any,
                                         contents: [{ role: 'user', parts: [
                                             { text: colorPrompt },
                                             { inlineData: { data: sourceBwImageBase64, mimeType: 'image/png' } }
@@ -1888,7 +1924,10 @@ export class ImageGenerator {
               model: this.modelName,
               contents: [{ role: 'user', parts: parts }],
               config: {
-                aspectRatio: this.getAspectRatioString(request.layout),
+                responseModalities: ['IMAGE', 'TEXT'],
+                imageConfig: {
+                  aspectRatio: this.getAspectRatioString(request.layout),
+                },
                 safetySettings: this.getSafetySettings(),
               } as any,
             });
@@ -1993,7 +2032,11 @@ export class ImageGenerator {
       );
 
       const response = await this.ai.models.generateContent({
-        model: this.modelName, config: { safetySettings: this.getSafetySettings() } as any,
+        model: this.modelName,
+        config: {
+          responseModalities: ['IMAGE', 'TEXT'],
+          safetySettings: this.getSafetySettings(),
+        } as any,
         contents: [
           {
             role: 'user',
