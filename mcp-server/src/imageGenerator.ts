@@ -109,12 +109,17 @@ export class ImageGenerator {
     await Promise.all(previewPromises);
   }
 
-  private async logGeneration(modelName: string, generatedFiles: string[]): Promise<void> {
+  private async logGeneration(modelName: string, generatedFiles: string[], referenceInfo?: string): Promise<void> {
     try {
       const logDir = FileHandler.ensureOutputDirectory();
       const logFile = path.join(logDir, 'nanobanana-output.log');
       const timestamp = new Date().toISOString();
-      const logEntry = `[${timestamp}] Model: ${modelName}, Generated Files: ${generatedFiles.join(', ')}\n`;
+      let logEntry = `[${timestamp}] Model: ${modelName}, Generated Files: ${generatedFiles.join(', ')}`;
+      
+      if (referenceInfo) {
+          logEntry += `, Reference: ${referenceInfo}`;
+      }
+      logEntry += '\n';
 
       await fs.promises.appendFile(logFile, logEntry, 'utf-8');
       console.error(`DEBUG - Logged generation to: ${logFile}`);
@@ -692,7 +697,7 @@ export class ImageGenerator {
              - Adult (approx 25-40): Standard 1:7.5 to 1:8 head-to-body ratio, defined bone structure, balanced muscle tone.
              - Elder (70+): Slight natural spinal curvature (kyphosis), settled center of gravity, prominent joint articulation.
              ${request.style || 'shonen'} manga style, black and white, screentones, high quality line art.
-             Full body from head to toe (must include complete legs and shoes), neutral pose, white background. DO NOT SQUASH or compress the figure vertically. Ensure legs are long and anatomically correct. Avoid chibi, dwarf, or super-deformed proportions.`;
+             Full body from head to toe (must include complete legs and shoes), neutral pose, white background. DO NOT SQUASH or compress the figure vertically. Ensure legs are long and anatomically correct. Avoid chibi, dwarf, or super-deformed proportions. Zoom out to fit the entire character within the frame. Leave ample white space margin around the character to prevent cropping of feet or head.`;
 
              try {
                 const bwResponse = await this.ai.models.generateContent({
@@ -718,7 +723,7 @@ export class ImageGenerator {
                             const fullPath = await FileHandler.saveImageFromBase64(b64, charsDir, bwFilename);
                             generatedFiles.push(fullPath);
                             bwRefBase64 = b64;
-                            await this.logGeneration(this.modelName, [fullPath]);
+                            await this.logGeneration(this.modelName, [fullPath], request.inputImage);
                             console.error(`DEBUG - Saved B&W Sheet: ${fullPath}`);
                             break;
                         }
@@ -748,7 +753,7 @@ export class ImageGenerator {
              Capture the facial features, hairstyle, and clothing details from the reference accurately.
              GENERATE IN FULL COLOR. Vibrant colors, detailed shading.
              Anime/Manga style.
-             Full body from head to toe (must include complete legs and shoes), neutral pose, white background. DO NOT SQUASH or compress the figure vertically. Ensure legs are long and anatomically correct. Avoid chibi, dwarf, or super-deformed proportions.`;
+             Full body from head to toe (must include complete legs and shoes), neutral pose, white background. DO NOT SQUASH or compress the figure vertically. Ensure legs are long and anatomically correct. Avoid chibi, dwarf, or super-deformed proportions. Zoom out to fit the entire character within the frame. Leave ample white space margin around the character to prevent cropping of feet or head.`;
 
              try {
                 const colorRefData = bwRefBase64 || sourceB64;
@@ -774,7 +779,7 @@ export class ImageGenerator {
                         if (b64) {
                             const fullPath = await FileHandler.saveImageFromBase64(b64, charsDir, colorFilename);
                             generatedFiles.push(fullPath);
-                            await this.logGeneration(this.modelName, [fullPath]);
+                            await this.logGeneration(this.modelName, [fullPath], request.inputImage);
                             console.error(`DEBUG - Saved Color Sheet: ${fullPath}`);
                             break;
                         }
@@ -1337,7 +1342,7 @@ export class ImageGenerator {
                          - Elder (70+): Slight natural spinal curvature (kyphosis), settled center of gravity, prominent joint articulation.
                          ${sourceImageB64 ? 'Use the attached image as the visual source for the character\'s appearance.' : ''}
                          ${request.style || 'shonen'} manga style, black and white, screentones, high quality line art.
-                         Full body from head to toe (must include complete legs and shoes), neutral pose, white background. DO NOT SQUASH or compress the figure vertically. Ensure legs are long and anatomically correct. Avoid chibi, dwarf, or super-deformed proportions.`;
+                         Full body from head to toe (must include complete legs and shoes), neutral pose, white background. DO NOT SQUASH or compress the figure vertically. Ensure legs are long and anatomically correct. Avoid chibi, dwarf, or super-deformed proportions. Zoom out to fit the entire character within the frame. Leave ample white space margin around the character to prevent cropping of feet or head.`;
                          
                          const bwParts: any[] = [{ text: bwPrompt }];
                          if (sourceImageB64) {
@@ -1389,7 +1394,7 @@ export class ImageGenerator {
                                 Ensure the character appeal and details strictly follow the guidelines provided in the user story file description.
                                 GENERATE IN FULL COLOR. Vibrant colors, detailed shading.
                                 Use the attached B&W image as the STRICT reference for line art and design. Colorize it accurately.
-                                Full body from head to toe (must include complete legs and shoes), neutral pose, white background. DO NOT SQUASH or compress the figure vertically. Ensure legs are long and anatomically correct. Avoid chibi, dwarf, or super-deformed proportions.`;
+                                Full body from head to toe (must include complete legs and shoes), neutral pose, white background. DO NOT SQUASH or compress the figure vertically. Ensure legs are long and anatomically correct. Avoid chibi, dwarf, or super-deformed proportions. Zoom out to fit the entire character within the frame. Leave ample white space margin around the character to prevent cropping of feet or head.`;
 
                                 try {
                                     const colorResponse = await this.ai.models.generateContent({
@@ -1585,7 +1590,7 @@ export class ImageGenerator {
                                                   - Adult (approx 25-40): Standard 1:7.5 to 1:8 head-to-body ratio, defined bone structure, balanced muscle tone.
                                                   - Elder (70+): Slight natural spinal curvature (kyphosis), settled center of gravity, prominent joint articulation.
                                                   ${request.style || 'shonen'} manga style, black and white, screentones, high quality line art.
-                                                  Full body from head to toe (must include complete legs and shoes), neutral pose, white background. DO NOT SQUASH or compress the figure vertically. Ensure legs are long and anatomically correct. Avoid chibi, dwarf, or super-deformed proportions.`;                         
+                                                  Full body from head to toe (must include complete legs and shoes), neutral pose, white background. DO NOT SQUASH or compress the figure vertically. Ensure legs are long and anatomically correct. Avoid chibi, dwarf, or super-deformed proportions. Zoom out to fit the entire character within the frame. Leave ample white space margin around the character to prevent cropping of feet or head.`;                         
                          try {
                             const bwResponse = await this.ai.models.generateContent({
                                 model: this.modelName,
@@ -1626,7 +1631,7 @@ export class ImageGenerator {
                                 GENERATE IN FULL COLOR. Vibrant colors, detailed shading.
                                 Use the attached B&W image as the STRICT reference.
                                 Include the following views: Front view, Left profile view, Right profile view, and Back view. Order them: Front, Left, Right, Back side-by-side in a wide format.
-                                Full body from head to toe (must include complete legs and shoes), neutral pose, white background. DO NOT SQUASH or compress the figure vertically. Ensure legs are long and anatomically correct. Avoid chibi, dwarf, or super-deformed proportions.`;
+                                Full body from head to toe (must include complete legs and shoes), neutral pose, white background. DO NOT SQUASH or compress the figure vertically. Ensure legs are long and anatomically correct. Avoid chibi, dwarf, or super-deformed proportions. Zoom out to fit the entire character within the frame. Leave ample white space margin around the character to prevent cropping of feet or head.`;
 
                                 try {
                                     const colorResponse = await this.ai.models.generateContent({
