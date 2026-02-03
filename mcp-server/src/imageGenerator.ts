@@ -290,7 +290,7 @@ export class ImageGenerator {
           const response = await this.ai.models.generateContent({
             model: this.modelName,
             config: {
-              responseModalities: ['IMAGE', 'TEXT'],
+              responseModalities: request.includeText ? ['IMAGE', 'TEXT'] : ['IMAGE'],
               safetySettings: this.getSafetySettings(),
             } as any,
             contents: [
@@ -481,7 +481,7 @@ export class ImageGenerator {
             const response = await this.ai.models.generateContent({
               model: this.modelName,
               config: {
-                responseModalities: ['IMAGE', 'TEXT'],
+                responseModalities: request.includeText ? ['IMAGE', 'TEXT'] : ['IMAGE'],
                 safetySettings: this.getSafetySettings(),
               } as any,
               contents: [
@@ -707,7 +707,7 @@ export class ImageGenerator {
                 const bwResponse = await this.ai.models.generateContent({
                     model: this.modelName,
                     config: {
-                      responseModalities: ['IMAGE', 'TEXT'],
+                      responseModalities: request.includeText ? ['IMAGE', 'TEXT'] : ['IMAGE'],
                       imageConfig: { aspectRatio: this.getAspectRatioString(request.layout) },
                       safetySettings: this.getSafetySettings(),
                     } as any,
@@ -768,7 +768,7 @@ export class ImageGenerator {
                 const colorResponse = await this.ai.models.generateContent({
                     model: this.modelName,
                     config: {
-                      responseModalities: ['IMAGE', 'TEXT'],
+                      responseModalities: request.includeText ? ['IMAGE', 'TEXT'] : ['IMAGE'],
                       imageConfig: { aspectRatio: this.getAspectRatioString(request.layout) },
                       safetySettings: this.getSafetySettings(),
                     } as any,
@@ -898,7 +898,7 @@ export class ImageGenerator {
                 const response = await this.ai.models.generateContent({
                     model: this.modelName,
                     config: {
-                      responseModalities: ['IMAGE', 'TEXT'],
+                      responseModalities: request.includeText ? ['IMAGE', 'TEXT'] : ['IMAGE'],
                       imageConfig: {
                         aspectRatio: this.getAspectRatioString(request.layout),
                       },
@@ -992,7 +992,7 @@ export class ImageGenerator {
           const response = await this.ai.models.generateContent({
             model: this.modelName,
             config: {
-              responseModalities: ['IMAGE', 'TEXT'],
+              responseModalities: request.includeText ? ['IMAGE', 'TEXT'] : ['IMAGE'],
               imageConfig: {
                 aspectRatio: this.getAspectRatioString(request.layout),
               },
@@ -1381,7 +1381,7 @@ export class ImageGenerator {
                             const bwResponse = await this.ai.models.generateContent({
                                 model: this.modelName,
                                 config: {
-                                  responseModalities: ['IMAGE', 'TEXT'],
+                                  responseModalities: request.includeText ? ['IMAGE', 'TEXT'] : ['IMAGE'],
                                   imageConfig: { aspectRatio: this.getAspectRatioString(request.layout) },
                                   safetySettings: this.getSafetySettings(),
                                 } as any,
@@ -1432,7 +1432,7 @@ export class ImageGenerator {
                                     const colorResponse = await this.ai.models.generateContent({
                                         model: this.modelName,
                                         config: {
-                                          responseModalities: ['IMAGE', 'TEXT'],
+                                          responseModalities: request.includeText ? ['IMAGE', 'TEXT'] : ['IMAGE'],
                                           imageConfig: { aspectRatio: this.getAspectRatioString(request.layout) },
                                           safetySettings: this.getSafetySettings(),
                                         } as any,
@@ -1631,7 +1631,7 @@ export class ImageGenerator {
                             const bwResponse = await this.ai.models.generateContent({
                                 model: this.modelName,
                                 config: {
-                                  responseModalities: ['IMAGE', 'TEXT'],
+                                  responseModalities: request.includeText ? ['IMAGE', 'TEXT'] : ['IMAGE'],
                                   imageConfig: { aspectRatio: this.getAspectRatioString(request.layout) },
                                   safetySettings: this.getSafetySettings(),
                                 } as any,
@@ -1678,7 +1678,7 @@ export class ImageGenerator {
                                     const colorResponse = await this.ai.models.generateContent({
                                         model: this.modelName,
                                         config: {
-                                          responseModalities: ['IMAGE', 'TEXT'],
+                                          responseModalities: request.includeText ? ['IMAGE', 'TEXT'] : ['IMAGE'],
                                           imageConfig: { aspectRatio: this.getAspectRatioString(request.layout) },
                                           safetySettings: this.getSafetySettings(),
                                         } as any,
@@ -2000,7 +2000,7 @@ export class ImageGenerator {
               model: this.modelName,
               contents: [{ role: 'user', parts: parts }],
               config: {
-                responseModalities: ['IMAGE', 'TEXT'],
+                responseModalities: request.includeText ? ['IMAGE', 'TEXT'] : ['IMAGE'],
                 imageConfig: {
                   aspectRatio: this.getAspectRatioString(request.layout),
                 },
@@ -2110,7 +2110,7 @@ export class ImageGenerator {
       const response = await this.ai.models.generateContent({
         model: this.modelName,
         config: {
-          responseModalities: ['IMAGE', 'TEXT'],
+          responseModalities: request.includeText ? ['IMAGE', 'TEXT'] : ['IMAGE'],
           safetySettings: this.getSafetySettings(),
         } as any,
         contents: [

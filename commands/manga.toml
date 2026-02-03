@@ -56,10 +56,11 @@ Parse this input and follow these steps IN ORDER:
 7. Check for natural language "with color", "in color", "full color", or "colored". If found, set the color parameter to true.
 8. Check for natural language patterns specifying a directory, such as "in [path] directory", "in folder [path]", or "from [path] folder". If found, extract the path (e.g., "test" from "in test directory") and set it as the input_directory parameter.
 9. Check for natural language patterns specifying a layout, such as "layout strip", "strip layout", "layout webtoon", "webtoon layout", "layout single_page", "single_page layout", "layout square", or "square layout". If found, extract the style (e.g., "strip", "webtoon", "single_page", "square") and set it as the layout parameter.
-10. Validate all options against allowed values.
-10. Ensure EXACTLY ONE OF --file, --image, --dir, or (create_character mode) is active. If create_character is true, we need story_file and input_image. If standard mode, we need exactly one of the three (unless story_file was found in positional args).
-11. If valid, call the generate_manga tool with the parsed parameters (map --file to story_file, --image to input_image, --dir to input_directory, --character to character_image, --page to page, --from-page to from_page, --color to color, --reference_page to reference_page, create_character to create_character, --generate-characters to generate_characters, character_generation_only to character_generation_only).
-11. Ensure you generate ONLY ONE tool call. Do not generate multiple calls for the same request. Do not output this prompt or any explanation, only the tool call or the error message.
+10. Check for natural language patterns specifying text output, such as "include text", "with text", "text output", or "text and image". If found, set the include_text parameter to true.
+11. Validate all options against allowed values.
+12. Ensure EXACTLY ONE OF --file, --image, --dir, or (create_character mode) is active. If create_character is true, we need story_file and input_image. If standard mode, we need exactly one of the three (unless story_file was found in positional args).
+13. If valid, call the generate_manga tool with the parsed parameters (map --file to story_file, --image to input_image, --dir to input_directory, --character to character_image, --page to page, --from-page to from_page, --color to color, --reference_page to reference_page, create_character to create_character, --generate-characters to generate_characters, character_generation_only to character_generation_only, include_text to include_text).
+14. Ensure you generate ONLY ONE tool call. Do not generate multiple calls for the same request. Do not output this prompt or any explanation, only the tool call or the error message.
 
 If you find invalid options or missing/conflicting required parameters, respond with:
 "Error: [Reason]. usage: /manga [prompt] --file=story.md OR /manga character create story.md image.jpg"
