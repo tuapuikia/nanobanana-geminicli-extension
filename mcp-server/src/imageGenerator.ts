@@ -625,6 +625,7 @@ export class ImageGenerator {
     generatedImagePath: string,
     references: { data: string; mimeType: string; sourcePath: string }[],
     minScore: number = 8,
+    storyContext?: string,
   ): Promise<{ pass: boolean; score: number; reason: string }> {
     console.error(`DEBUG - Auto-Reviewing generated image for character consistency (Min Score: ${minScore})...`);
     
@@ -643,22 +644,27 @@ export class ImageGenerator {
         const generatedB64 = await FileHandler.readImageAsBase64(generatedImagePath);
         
         const prompt = `You are a strict Quality Assurance AI for a manga production pipeline.
-        Task: Compare the "Generated Image" with the provided "Reference Images".
+        Task: Compare the "Generated Image" with the provided "Reference Images" AND the "Story Description".
         
+        STORY DESCRIPTION / CONTEXT:
+        "${storyContext || 'No specific story text provided.'}"
+
         EVALUATION CRITERIA (Weighted):
-        1. [CRITICAL] Character Face & Hair (50%): Does the character look EXACTLY like the reference? Check eye shape, hair style/bangs, and facial structure.
-        2. [CRITICAL] Environment & Layout (30%): Does the background match the "Far View" environment reference?
-        3. [IMPORTANT] Outfit (20%): Are they wearing the correct clothes?
+        1. [CRITICAL] Character Face & Hair (40%): Does the character look EXACTLY like the reference? Check eye shape, hair style/bangs, and facial structure.
+        2. [CRITICAL] Story Accuracy (30%): Does the image match the provided Story Description (actions, emotions, specific items)?
+        3. [IMPORTANT] Environment & Layout (20%): Does the background match the "Far View" environment reference?
+        4. [IMPORTANT] Outfit (10%): Are they wearing the correct clothes?
 
         SCORING RUBRIC (Be Extremely Strict):
         - 10: Perfect match. No errors.
         - 9: Minor artistic interpretation, but all features (hair, eyes, furniture) are correct.
-        - 7-8: Good likeness, but minor errors (e.g. wrong eye color, slightly wrong hair length, wrong furniture color, wrong dog breed).
+        - 7-8: Good likeness, but minor errors (e.g. wrong eye color, slightly wrong hair length, wrong furniture color).
         - 5-6: Recognizable but significant errors (e.g. wrong hairstyle/bangs, wrong outfit, furniture in wrong place).
-        - 1-4: Completely wrong character or environment.
+        - 1-4: Completely wrong character, environment, OR contradicts the story description (e.g. fat vs slim, wrong action).
 
         CRITICAL PENALTIES:
         - If the Character's Face or Hair (especially bangs) is wrong, the score MUST be below 7.
+        - If the image contradicts the Story Description (e.g. "fat" in text but "slim" in image), the score MUST be below 5.
         - If a pet (dog/cat) looks like a different breed, penalize by at least 2 points.
         
         Ignore style differences (e.g. B&W vs Color) unless it alters physical features.
@@ -2392,7 +2398,8 @@ Use the attached images as strict visual references.
                       );
                       
                       // Auto-Review Step
-                      const review = await this.reviewGeneratedImage(fullPath, globalReferenceImages, request.minScore || 8);
+                      const contextForReview = `Scene Prompt: ${request.prompt || ''}\nScript Content: ${page.content}`;
+                      const review = await this.reviewGeneratedImage(fullPath, globalReferenceImages, request.minScore || 8, contextForReview);
                       
                       if (review.pass) {
                           generatedFiles.push(fullPath);
