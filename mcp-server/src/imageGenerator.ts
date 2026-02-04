@@ -617,6 +617,10 @@ export class ImageGenerator {
     }
   }
 
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
   async generateMangaPage(
     request: ImageGenerationRequest,
   ): Promise<ImageGenerationResponse> {
@@ -1874,17 +1878,14 @@ export class ImageGenerator {
                      const envAbsPath = path.join(envsDir, envFilename);
                      
                      // Check if file exists on disk (Check for ANY of the new multi-angle files or the legacy one)
-                     // We will prioritize the new multi-angle format: _env_top.png, _env_main.png, _env_reverse.png
+                     // We will prioritize the new multi-angle format: _env_top.png
                      
-                     // ORDER CHANGED: Top View FIRST to establish layout, then Main (Front), then Reverse.
+                     // ORDER CHANGED: Only Top View is generated to establish layout.
                      const angles = [
-                        { suffix: 'top', label: 'Top View', promptAdd: 'Top-down floor plan view. Architectural layout map. Show furniture placement clearly.' },
-                        { suffix: 'main', label: 'Main View', promptAdd: 'Wide establishing shot (Front View). Show the entire room layout as seen from the entrance or main angle.' },
-                        { suffix: 'reverse', label: 'Reverse View', promptAdd: 'Reverse angle shot (Back View). Camera looking from the opposite direction. Show the other side of the room.' }
+                        { suffix: 'top', label: 'Top View', promptAdd: 'Top-down floor plan view. Architectural layout map. Show furniture placement clearly.' }
                      ];
 
                      const generatedLinks: string[] = [];
-                     let topViewB64: string | undefined;
 
                      for (const angle of angles) {
                          const angleFilename = `${safeName}_env_${angle.suffix}.png`;
@@ -1901,7 +1902,6 @@ export class ImageGenerator {
                                      globalReferenceImages.push({ data: b64, mimeType: 'image/png', sourcePath: existingRes.filePath! });
                                      loadedGlobalImagePaths.add(existingRes.filePath!);
                                      
-                                     if (angle.suffix === 'top') topViewB64 = b64;
                                      console.error(`DEBUG - Loaded existing environment (${angle.label}): ${envName}`);
                                  } catch (e) {}
                              }
@@ -1920,22 +1920,14 @@ export class ImageGenerator {
                          Establish the layout, furniture, and atmosphere described.
                          ${request.color ? 'Full color.' : 'Black and white, screentones.'}`;
                          
-                         // If generating Main or Reverse view, use Top view as strict reference
-                         if (topViewB64 && angle.suffix !== 'top') {
-                             envPrompt += " Use the attached Top-Down Floor Plan as the STRICT ARCHITECTURAL BLUEPRINT. Align all furniture placement, walls, and doors exactly as shown in the plan.";
-                         }
-                         
                          const parts: any[] = [{ text: envPrompt }];
-                         if (topViewB64 && angle.suffix !== 'top') {
-                             parts.push({ inlineData: { data: topViewB64, mimeType: 'image/png' } });
-                         }
 
                          try {
                             const envResponse = await this.ai.models.generateContent({
                                 model: this.modelName,
                                 config: {
                                   responseModalities: request.includeText ? ['IMAGE', 'TEXT'] : ['IMAGE'],
-                                  imageConfig: { aspectRatio: angle.suffix === 'top' ? '1:1' : '16:9' }, // Top view is square for better map view
+                                  imageConfig: { aspectRatio: '1:1' }, // Top view is square for better map view
                                   safetySettings: this.getSafetySettings(),
                                 } as any,
                                 contents: [{ role: 'user', parts: parts }],
@@ -1953,8 +1945,6 @@ export class ImageGenerator {
                                         
                                         globalReferenceImages.push({ data: b64, mimeType: 'image/png', sourcePath: fullPath });
                                         loadedGlobalImagePaths.add(fullPath);
-                                        
-                                        if (angle.suffix === 'top') topViewB64 = b64;
                                         
                                         generatedLinks.push(`![${envName} ${angle.label}](${angleRelPath})`);
                                         
@@ -2158,8 +2148,8 @@ export class ImageGenerator {
 \n[INSTRUCTION]
 Use the attached images as strict visual references.
 1. **Characters**: Maintain specific appearance (hairstyle, clothing, features) consistently.
-2. **Environments**: If an environment reference is provided (e.g. "Living Room", "Kitchen"), you MUST maintain the exact spatial layout, furniture placement, and architectural details. Do not move fixed objects like windows, doors, or large furniture (sofas, desks) unless the script explicitly moves them.
-3. **Continuity**: Ensure the visual style matches the "Previous Page" reference if provided.`;
+2. **Environments**: The attached "Top View" image is your STRICT ARCHITECTURAL BLUEPRINT. You must deduce the 3D perspective from this floor plan. Place furniture, windows, and doors EXACTLY where they are in the blueprint relative to the camera angle.
+3. **Continuity**: If a "Previous Page" reference is attached, you MUST ensure seamless continuity. The placement of objects and characters must logically follow the previous panel. Do not teleport furniture.`;
         
         if (request.color) {
             fullPrompt += "\n\n[IMPORTANT STYLE OVERRIDE]\nGENERATE THIS PAGE IN FULL COLOR. IGNORE ANY PREVIOUS 'BLACK AND WHITE' INSTRUCTIONS.";
@@ -2303,6 +2293,12 @@ Use the attached images as strict visual references.
             // Decide whether to continue? For sequential manga, failure in middle breaks chain.
             // But maybe we should try best effort for remaining pages? 
             // Let's continue but previousPagePath will stay as the last successful one (or null).
+        }
+
+        // Add pause for stability to improve consistency (avoid caching/rate limits)
+        if (i < pagesToProcess.length - 1) {
+            console.error('DEBUG - Pausing 5 seconds for stability...');
+            await this.delay(5000);
         }
       }
 
