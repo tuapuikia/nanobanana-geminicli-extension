@@ -2341,10 +2341,20 @@ Use the attached images as strict visual references.
         let attemptSuccess = false;
         let finalGeneratedPath = "";
         const maxRetries = request.retryCount || 3;
+        
+        // Store original prompt to append corrections without duplication
+        const originalPromptText = parts[0].text;
+        let correctionInstruction = "";
 
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
             console.error(`DEBUG - Generating ${page.header} (Attempt ${attempt}/${maxRetries})...`);
             
+            // Apply correction instruction if exists
+            if (correctionInstruction) {
+                parts[0].text = originalPromptText + correctionInstruction;
+                console.error(`DEBUG - Applied correction instruction to prompt.`);
+            }
+
             try {
                 const response = await this.ai.models.generateContent({
                   model: this.modelName,
@@ -2403,6 +2413,9 @@ Use the attached images as strict visual references.
                           await fs.promises.rename(fullPath, failedPath);
                           console.error(`DEBUG - Renamed failed image to: ${failedFilename}`);
                           
+                          // Set correction instruction for next attempt
+                          correctionInstruction = `\n\n[CORRECTION INSTRUCTION]\nThe previous generation was rejected (Score: ${review.score}/10). \nReason: ${review.reason}\nFIX THIS SPECIFIC ISSUE IN THE NEW GENERATION. Pay close attention to the specific feedback provided.`;
+
                           if (attempt === maxRetries) {
                               return {
                                   success: false,
