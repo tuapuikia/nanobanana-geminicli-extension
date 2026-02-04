@@ -1873,50 +1873,62 @@ export class ImageGenerator {
                      const envRelPath = path.join('environments', envFilename);
                      const envAbsPath = path.join(envsDir, envFilename);
                      
-                     // Check if link already exists in the line
-                     if (fullLine.includes(envFilename)) {
-                         const existingRes = FileHandler.findInputFile(envAbsPath);
+                     // Check if file exists on disk (Check for ANY of the new multi-angle files or the legacy one)
+                     // We will prioritize the new multi-angle format: _env_main.png, _env_reverse.png, _env_top.png
+                     
+                     const angles = [
+                        { suffix: 'main', label: 'Main View', promptAdd: 'Wide establishing shot. Show the entire room layout.' },
+                        { suffix: 'reverse', label: 'Reverse View', promptAdd: 'Reverse angle shot. Camera looking from the opposite direction. Show the other side of the room.' },
+                        { suffix: 'top', label: 'Top View', promptAdd: 'Top-down floor plan view. Architectural layout map. Show furniture placement clearly.' }
+                     ];
+
+                     const generatedLinks: string[] = [];
+                     let mainViewB64: string | undefined;
+
+                     for (const angle of angles) {
+                         const angleFilename = `${safeName}_env_${angle.suffix}.png`;
+                         const angleRelPath = path.join('environments', angleFilename);
+                         const angleAbsPath = path.join(envsDir, angleFilename);
+                         
+                         // Check if this specific angle exists
+                         const existingRes = FileHandler.findInputFile(angleAbsPath);
+                         
                          if (existingRes.found) {
                              if (!loadedGlobalImagePaths.has(existingRes.filePath!)) {
                                  try {
                                      const b64 = await FileHandler.readImageAsBase64(existingRes.filePath!);
                                      globalReferenceImages.push({ data: b64, mimeType: 'image/png', sourcePath: existingRes.filePath! });
                                      loadedGlobalImagePaths.add(existingRes.filePath!);
-                                     console.error(`DEBUG - Loaded existing environment ref: ${envName}`);
+                                     
+                                     if (angle.suffix === 'main') mainViewB64 = b64;
+                                     console.error(`DEBUG - Loaded existing environment (${angle.label}): ${envName}`);
                                  } catch (e) {}
                              }
+                             // Collect link for text update
+                             generatedLinks.push(`![${envName} ${angle.label}](${angleRelPath})`);
                              continue;
                          }
-                     }
 
-                     console.error(`DEBUG - Processing environment: ${envName}`);
-                     
-                     // Check if file exists on disk
-                     const existingRes = FileHandler.findInputFile(envAbsPath);
-                     if (existingRes.found) {
-                         if (!loadedGlobalImagePaths.has(existingRes.filePath!)) {
-                             try {
-                                 const b64 = await FileHandler.readImageAsBase64(existingRes.filePath!);
-                                 globalReferenceImages.push({ data: b64, mimeType: 'image/png', sourcePath: existingRes.filePath! });
-                                 loadedGlobalImagePaths.add(existingRes.filePath!);
-                                 console.error(`DEBUG - Loaded existing environment (disk): ${envName}`);
-                                 
-                                 // Add link if missing
-                                 if (!fullLine.includes(envFilename)) {
-                                     newStoryContent = newStoryContent.replace(fullLine, `${fullLine} ![${envName}](${envRelPath})`);
-                                     envStoryContentModified = true;
-                                 }
-                             } catch (e) {}
-                         }
-                     } else {
-                         // Generate Environment Image
-                         console.error(`DEBUG - Generating Environment: ${envName}...`);
-                         const envPrompt = `Environment Design: ${envName}. ${envDesc}.
+                         // Generate Environment Image for this Angle
+                         console.error(`DEBUG - Generating Environment (${angle.label}): ${envName}...`);
+                         
+                         let envPrompt = `Environment Design: ${envName}. ${envDesc}.
+                         ${angle.promptAdd}
                          ${request.style || 'shonen'} manga style, black and white background art, detailed, high quality.
                          NO CHARACTERS. Scenery only.
                          Establish the layout, furniture, and atmosphere described.
                          ${request.color ? 'Full color.' : 'Black and white, screentones.'}`;
                          
+                         // If generating Reverse or Top view, use Main view as strict reference
+                         if (mainViewB64 && angle.suffix !== 'main') {
+                             envPrompt += " Use the attached Main View image as strict reference for furniture style, room colors/textures, and layout. Maintain visual consistency.";
+                         }
+                         
+                         const parts: any[] = [{ text: envPrompt }];
+                         if (mainViewB64 && angle.suffix !== 'main') {
+                             parts.push({ inlineData: { data: mainViewB64, mimeType: 'image/png' } });
+                         }
+
                          try {
                             const envResponse = await this.ai.models.generateContent({
                                 model: this.modelName,
@@ -1925,7 +1937,7 @@ export class ImageGenerator {
                                   imageConfig: { aspectRatio: '16:9' }, 
                                   safetySettings: this.getSafetySettings(),
                                 } as any,
-                                contents: [{ role: 'user', parts: [{ text: envPrompt }] }],
+                                contents: [{ role: 'user', parts: parts }],
                             });
 
                             if (envResponse.candidates && envResponse.candidates[0]?.content?.parts) {
@@ -1935,24 +1947,40 @@ export class ImageGenerator {
                                     else if (part.text && this.isValidBase64ImageData(part.text)) b64 = part.text;
 
                                     if (b64) {
-                                        const fullPath = await FileHandler.saveImageFromBase64(b64, envsDir, envFilename);
+                                        const fullPath = await FileHandler.saveImageFromBase64(b64, envsDir, angleFilename);
                                         generatedFiles.push(fullPath);
                                         
                                         globalReferenceImages.push({ data: b64, mimeType: 'image/png', sourcePath: fullPath });
                                         loadedGlobalImagePaths.add(fullPath);
                                         
-                                        // Update Text
-                                        newStoryContent = newStoryContent.replace(fullLine, `${fullLine} ![${envName}](${envRelPath})`);
-                                        envStoryContentModified = true;
+                                        if (angle.suffix === 'main') mainViewB64 = b64;
                                         
-                                        console.error(`DEBUG - Generated Environment: ${fullPath}`);
+                                        generatedLinks.push(`![${envName} ${angle.label}](${angleRelPath})`);
+                                        
+                                        console.error(`DEBUG - Generated Environment (${angle.label}): ${fullPath}`);
                                         break;
                                     }
                                 }
                             }
                          } catch (e) {
-                             console.error(`DEBUG - Failed to generate environment ${envName}:`, e);
+                             console.error(`DEBUG - Failed to generate environment ${envName} (${angle.label}):`, e);
                          }
+                     }
+
+                     // Update Story File with ALL links
+                     // We check if the line already has these links to avoid duplication
+                     let linksToAdd = "";
+                     for (const link of generatedLinks) {
+                         // Check if this specific link filename is already in the line
+                         const filename = link.match(/\((.*?)\)/)?.[1]; // extract path inside ()
+                         if (filename && !fullLine.includes(filename)) {
+                             linksToAdd += ` ${link}`;
+                         }
+                     }
+
+                     if (linksToAdd) {
+                         newStoryContent = newStoryContent.replace(fullLine, `${fullLine}${linksToAdd}`);
+                         envStoryContentModified = true;
                      }
                  }
             }
@@ -2124,7 +2152,12 @@ export class ImageGenerator {
 
         // Construct Prompt
         let fullPrompt = `${request.prompt}, ${ratioInstruction}\n\n[GLOBAL CONTEXT]\n${globalContext}\n\n[CURRENT PAGE: ${page.header}]\n${page.content}`;
-        fullPrompt += "\n\n[INSTRUCTION]\nUse the attached images as strict visual references for the characters defined in the Global Context. Maintain their specific appearance (hairstyle, clothing, features) consistently.";
+        fullPrompt += `
+\n[INSTRUCTION]
+Use the attached images as strict visual references.
+1. **Characters**: Maintain specific appearance (hairstyle, clothing, features) consistently.
+2. **Environments**: If an environment reference is provided (e.g. "Living Room", "Kitchen"), you MUST maintain the exact spatial layout, furniture placement, and architectural details. Do not move fixed objects like windows, doors, or large furniture (sofas, desks) unless the script explicitly moves them.
+3. **Continuity**: Ensure the visual style matches the "Previous Page" reference if provided.`;
         
         if (request.color) {
             fullPrompt += "\n\n[IMPORTANT STYLE OVERRIDE]\nGENERATE THIS PAGE IN FULL COLOR. IGNORE ANY PREVIOUS 'BLACK AND WHITE' INSTRUCTIONS.";
