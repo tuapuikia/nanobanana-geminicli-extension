@@ -640,6 +640,7 @@ class NanoBananaServer {
               autoGenerateEnvironments: args?.generate_environments as boolean,
               environmentGenerationOnly: args?.environment_generation_only as boolean,
               includeText: args?.include_text as boolean,
+              minScore: args?.min_score as number,
             };
             response = await this.imageGenerator.generateMangaPage(mangaRequest);
             break;

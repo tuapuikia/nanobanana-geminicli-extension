@@ -624,8 +624,9 @@ export class ImageGenerator {
   private async reviewGeneratedImage(
     generatedImagePath: string,
     references: { data: string; mimeType: string; sourcePath: string }[],
+    minScore: number = 8,
   ): Promise<{ pass: boolean; score: number; reason: string }> {
-    console.error('DEBUG - Auto-Reviewing generated image for character consistency...');
+    console.error(`DEBUG - Auto-Reviewing generated image for character consistency (Min Score: ${minScore})...`);
     
     // Filter references to prioritize characters (based on path/name)
     const characterRefs = references.filter(ref => 
@@ -653,9 +654,9 @@ export class ImageGenerator {
         
         Output strictly in JSON format:
         {
-            "score": number, // 1-10. Score < 8.5 is a FAIL. Be extremely strict.
+            "score": number, // 1-10. Score < ${minScore} is a FAIL. Be extremely strict.
             "reason": "string", // Specific feedback on what is wrong.
-            "pass": boolean // true if score >= 8.5, false otherwise.
+            "pass": boolean // true if score >= ${minScore}, false otherwise.
         }`;
 
         const parts: any[] = [{ text: prompt }];
@@ -2365,7 +2366,7 @@ Use the attached images as strict visual references.
                       );
                       
                       // Auto-Review Step
-                      const review = await this.reviewGeneratedImage(fullPath, globalReferenceImages);
+                      const review = await this.reviewGeneratedImage(fullPath, globalReferenceImages, request.minScore || 8);
                       
                       if (review.pass) {
                           generatedFiles.push(fullPath);
