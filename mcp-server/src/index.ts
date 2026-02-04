@@ -485,6 +485,16 @@ class NanoBananaServer {
                   description: 'Only generate environment backgrounds, skip manga page generation',
                   default: false,
                 },
+                min_score: {
+                  type: 'number',
+                  description: 'Minimum score (1-10) required for auto-review to pass',
+                  default: 8,
+                },
+                retry_count: {
+                  type: 'number',
+                  description: 'Maximum number of retries if auto-review fails',
+                  default: 3,
+                },
               },
               required: [],
             },
