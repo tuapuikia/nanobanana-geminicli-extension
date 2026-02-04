@@ -688,7 +688,12 @@ export class ImageGenerator {
         }
 
         const result = JSON.parse(responseText);
-        const logMsg = `[Auto-Review] Score: ${result.score}/10. Pass: ${result.pass}. Reason: ${result.reason}`;
+        
+        // Enforce logic: Trust the score, but override the boolean based on strict math.
+        // This fixes cases where LLM says "Score: 7, Pass: false" when minScore is 7.
+        const calculatedPass = result.score >= minScore;
+        
+        const logMsg = `[Auto-Review] Score: ${result.score}/10 (Min: ${minScore}). Pass: ${calculatedPass}. Reason: ${result.reason}`;
         console.error(`DEBUG - ${logMsg}`);
         
         // Log to file
@@ -702,7 +707,7 @@ export class ImageGenerator {
         }
 
         return {
-            pass: result.pass,
+            pass: calculatedPass,
             score: result.score,
             reason: result.reason
         };
