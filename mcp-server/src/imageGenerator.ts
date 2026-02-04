@@ -1874,16 +1874,17 @@ export class ImageGenerator {
                      const envAbsPath = path.join(envsDir, envFilename);
                      
                      // Check if file exists on disk (Check for ANY of the new multi-angle files or the legacy one)
-                     // We will prioritize the new multi-angle format: _env_main.png, _env_reverse.png, _env_top.png
+                     // We will prioritize the new multi-angle format: _env_top.png, _env_main.png, _env_reverse.png
                      
+                     // ORDER CHANGED: Top View FIRST to establish layout, then Main (Front), then Reverse.
                      const angles = [
-                        { suffix: 'main', label: 'Main View', promptAdd: 'Wide establishing shot. Show the entire room layout.' },
-                        { suffix: 'reverse', label: 'Reverse View', promptAdd: 'Reverse angle shot. Camera looking from the opposite direction. Show the other side of the room.' },
-                        { suffix: 'top', label: 'Top View', promptAdd: 'Top-down floor plan view. Architectural layout map. Show furniture placement clearly.' }
+                        { suffix: 'top', label: 'Top View', promptAdd: 'Top-down floor plan view. Architectural layout map. Show furniture placement clearly.' },
+                        { suffix: 'main', label: 'Main View', promptAdd: 'Wide establishing shot (Front View). Show the entire room layout as seen from the entrance or main angle.' },
+                        { suffix: 'reverse', label: 'Reverse View', promptAdd: 'Reverse angle shot (Back View). Camera looking from the opposite direction. Show the other side of the room.' }
                      ];
 
                      const generatedLinks: string[] = [];
-                     let mainViewB64: string | undefined;
+                     let topViewB64: string | undefined;
 
                      for (const angle of angles) {
                          const angleFilename = `${safeName}_env_${angle.suffix}.png`;
@@ -1900,7 +1901,7 @@ export class ImageGenerator {
                                      globalReferenceImages.push({ data: b64, mimeType: 'image/png', sourcePath: existingRes.filePath! });
                                      loadedGlobalImagePaths.add(existingRes.filePath!);
                                      
-                                     if (angle.suffix === 'main') mainViewB64 = b64;
+                                     if (angle.suffix === 'top') topViewB64 = b64;
                                      console.error(`DEBUG - Loaded existing environment (${angle.label}): ${envName}`);
                                  } catch (e) {}
                              }
@@ -1919,14 +1920,14 @@ export class ImageGenerator {
                          Establish the layout, furniture, and atmosphere described.
                          ${request.color ? 'Full color.' : 'Black and white, screentones.'}`;
                          
-                         // If generating Reverse or Top view, use Main view as strict reference
-                         if (mainViewB64 && angle.suffix !== 'main') {
-                             envPrompt += " Use the attached Main View image as strict reference for furniture style, room colors/textures, and layout. Maintain visual consistency.";
+                         // If generating Main or Reverse view, use Top view as strict reference
+                         if (topViewB64 && angle.suffix !== 'top') {
+                             envPrompt += " Use the attached Top-Down Floor Plan as the STRICT ARCHITECTURAL BLUEPRINT. Align all furniture placement, walls, and doors exactly as shown in the plan.";
                          }
                          
                          const parts: any[] = [{ text: envPrompt }];
-                         if (mainViewB64 && angle.suffix !== 'main') {
-                             parts.push({ inlineData: { data: mainViewB64, mimeType: 'image/png' } });
+                         if (topViewB64 && angle.suffix !== 'top') {
+                             parts.push({ inlineData: { data: topViewB64, mimeType: 'image/png' } });
                          }
 
                          try {
@@ -1934,7 +1935,7 @@ export class ImageGenerator {
                                 model: this.modelName,
                                 config: {
                                   responseModalities: request.includeText ? ['IMAGE', 'TEXT'] : ['IMAGE'],
-                                  imageConfig: { aspectRatio: '16:9' }, 
+                                  imageConfig: { aspectRatio: angle.suffix === 'top' ? '1:1' : '16:9' }, // Top view is square for better map view
                                   safetySettings: this.getSafetySettings(),
                                 } as any,
                                 contents: [{ role: 'user', parts: parts }],
@@ -1953,10 +1954,11 @@ export class ImageGenerator {
                                         globalReferenceImages.push({ data: b64, mimeType: 'image/png', sourcePath: fullPath });
                                         loadedGlobalImagePaths.add(fullPath);
                                         
-                                        if (angle.suffix === 'main') mainViewB64 = b64;
+                                        if (angle.suffix === 'top') topViewB64 = b64;
                                         
                                         generatedLinks.push(`![${envName} ${angle.label}](${angleRelPath})`);
                                         
+                                        await this.logGeneration(this.modelName, [fullPath], `Environment: ${envName} (${angle.label})`);
                                         console.error(`DEBUG - Generated Environment (${angle.label}): ${fullPath}`);
                                         break;
                                     }
