@@ -621,6 +621,97 @@ export class ImageGenerator {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
+  private async reviewGeneratedImage(
+    generatedImagePath: string,
+    references: { data: string; mimeType: string; sourcePath: string }[],
+  ): Promise<{ pass: boolean; score: number; reason: string }> {
+    console.error('DEBUG - Auto-Reviewing generated image for character consistency...');
+    
+    // Filter references to prioritize characters (based on path/name)
+    const characterRefs = references.filter(ref => 
+        ref.sourcePath.includes('characters/') || 
+        ref.sourcePath.includes('_portrait')
+    );
+
+    if (characterRefs.length === 0) {
+        console.error('DEBUG - No character references found for review. Skipping.');
+        return { pass: true, score: 10, reason: "No references to check against." };
+    }
+
+    try {
+        const generatedB64 = await FileHandler.readImageAsBase64(generatedImagePath);
+        
+        const prompt = `You are a strict Quality Assurance AI for a manga production pipeline.
+        Task: Compare the "Generated Image" with the provided "Reference Images".
+        
+        EVALUATION CRITERIA (Weighted):
+        1. [CRITICAL] Character Face & Hair (50%): Does the character look exactly like the reference? Check eye shape, hair style/bangs, and facial structure.
+        2. [CRITICAL] Environment & Layout (30%): Does the background match the "Top View" or "Main View" environment references (if provided)? Are furniture/walls in the correct relative positions?
+        3. [IMPORTANT] Outfit (20%): Are they wearing the correct clothes?
+        
+        Ignore style differences (e.g. B&W vs Color) unless it alters physical features.
+        
+        Output strictly in JSON format:
+        {
+            "score": number, // 1-10. Score < 7 is a FAIL. Be strict.
+            "reason": "string", // Specific feedback on what is wrong (e.g. "Hair bangs are wrong style", "Sofa is on wrong wall").
+            "pass": boolean // true if score >= 7, false otherwise.
+        }`;
+
+        const parts: any[] = [{ text: prompt }];
+        
+        // Add Generated Image
+        parts.push({ text: "Generated Image:" });
+        parts.push({ inlineData: { data: generatedB64, mimeType: 'image/png' } });
+
+        // Add References (Pass ALL references now, including environments)
+        for (const ref of references) {
+            const label = path.basename(ref.sourcePath);
+            parts.push({ text: `Reference (${label}):` });
+            parts.push({ inlineData: { data: ref.data, mimeType: ref.mimeType } });
+        }
+
+        const response = await this.ai.models.generateContent({
+            model: 'gemini-2.0-flash', 
+            config: {
+                responseModalities: ['TEXT'],
+                responseMimeType: 'application/json',
+                safetySettings: this.getSafetySettings(),
+            } as any,
+            contents: [{ role: 'user', parts: parts }],
+        });
+
+        const responseText = response.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!responseText) {
+            throw new Error("No response from review model");
+        }
+
+        const result = JSON.parse(responseText);
+        const logMsg = `[Auto-Review] Score: ${result.score}/10. Pass: ${result.pass}. Reason: ${result.reason}`;
+        console.error(`DEBUG - ${logMsg}`);
+        
+        // Log to file
+        try {
+            const logDir = FileHandler.ensureOutputDirectory();
+            const logFile = path.join(logDir, 'nanobanana-output.log');
+            const timestamp = new Date().toISOString();
+            await fs.promises.appendFile(logFile, `[${timestamp}] ${logMsg}\n`, 'utf-8');
+        } catch (e) {
+            console.error('DEBUG - Failed to log review to file:', e);
+        }
+
+        return {
+            pass: result.pass,
+            score: result.score,
+            reason: result.reason
+        };
+
+    } catch (error) {
+        console.error('DEBUG - Auto-review failed (error calling model):', error);
+        return { pass: true, score: 0, reason: "Review failed to execute." };
+    }
+  }
+
   async generateMangaPage(
     request: ImageGenerationRequest,
   ): Promise<ImageGenerationResponse> {
@@ -1878,11 +1969,11 @@ export class ImageGenerator {
                      const envAbsPath = path.join(envsDir, envFilename);
                      
                      // Check if file exists on disk (Check for ANY of the new multi-angle files or the legacy one)
-                     // We will prioritize the new multi-angle format: _env_top.png
+                     // We will prioritize the new format: _env_far.png
                      
-                     // ORDER CHANGED: Only Top View is generated to establish layout.
+                     // ORDER CHANGED: Generate "Far View" (Wide Establishing Shot) as the single source of truth.
                      const angles = [
-                        { suffix: 'top', label: 'Top View', promptAdd: 'Top-down floor plan view. Architectural layout map. Show furniture placement clearly.' }
+                        { suffix: 'far', label: 'Far View', promptAdd: 'Extreme wide establishing shot. Far distance view showing the entire room/location layout from a distance. Capture the full scale, atmosphere, and furniture placement.' }
                      ];
 
                      const generatedLinks: string[] = [];
@@ -1927,7 +2018,7 @@ export class ImageGenerator {
                                 model: this.modelName,
                                 config: {
                                   responseModalities: request.includeText ? ['IMAGE', 'TEXT'] : ['IMAGE'],
-                                  imageConfig: { aspectRatio: '1:1' }, // Top view is square for better map view
+                                  imageConfig: { aspectRatio: '16:9' }, // Far view works best in wide format
                                   safetySettings: this.getSafetySettings(),
                                 } as any,
                                 contents: [{ role: 'user', parts: parts }],
@@ -2148,7 +2239,7 @@ export class ImageGenerator {
 \n[INSTRUCTION]
 Use the attached images as strict visual references.
 1. **Characters**: Maintain specific appearance (hairstyle, clothing, features) consistently.
-2. **Environments**: The attached "Top View" image is your STRICT ARCHITECTURAL BLUEPRINT. You must deduce the 3D perspective from this floor plan. Place furniture, windows, and doors EXACTLY where they are in the blueprint relative to the camera angle.
+2. **Environments**: The attached "Far View" image is your STRICT VISUAL ANCHOR. Use it to establish the room's layout, furniture placement, and atmosphere. Maintain this location's design exactly.
 3. **Continuity**: If a "Previous Page" reference is attached, you MUST ensure seamless continuity. The placement of objects and characters must logically follow the previous panel. Do not teleport furniture.`;
         
         if (request.color) {
@@ -2275,6 +2366,25 @@ Use the attached images as strict visual references.
                   previousPagePath = fullPath; // Update for next iteration
                   imageSaved = true;
                   console.error(`DEBUG - Generated ${page.header}: ${fullPath}`);
+                  
+                  // Auto-Review Step
+                  const review = await this.reviewGeneratedImage(fullPath, globalReferenceImages);
+                  if (!review.pass) {
+                      const errorMsg = `Auto-Review FAILED for ${page.header}. Score: ${review.score}/10. Reason: ${review.reason}. Stopping generation.`;
+                      console.error(`❌ ${errorMsg}`);
+                      
+                      // Optionally delete the bad file? 
+                      // await fs.promises.unlink(fullPath); 
+                      // Keeping it for user inspection is usually better.
+                      
+                      return {
+                          success: false,
+                          message: `Generation stopped due to consistency check failure on ${page.header}`,
+                          error: errorMsg,
+                          generatedFiles: generatedFiles // Return what we have so far
+                      };
+                  }
+                  
                   break; 
                 }
               }
@@ -2295,11 +2405,6 @@ Use the attached images as strict visual references.
             // Let's continue but previousPagePath will stay as the last successful one (or null).
         }
 
-        // Add pause for stability to improve consistency (avoid caching/rate limits)
-        if (i < pagesToProcess.length - 1) {
-            console.error('DEBUG - Pausing 5 seconds for stability...');
-            await this.delay(5000);
-        }
       }
 
       if (generatedFiles.length > 0) {
