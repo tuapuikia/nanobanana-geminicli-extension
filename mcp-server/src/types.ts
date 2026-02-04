@@ -31,6 +31,8 @@ export interface ImageGenerationRequest {
   createCharacter?: boolean;
   autoGenerateCharacters?: boolean;
   characterGenerationOnly?: boolean;
+  autoGenerateEnvironments?: boolean;
+  environmentGenerationOnly?: boolean;
   includeText?: boolean;
 }
 
@@ -102,5 +104,7 @@ export interface MangaPromptArgs {
   noPreview?: boolean;
   generate_characters?: boolean;
   character_generation_only?: boolean;
+  generate_environments?: boolean;
+  environment_generation_only?: boolean;
   include_text?: boolean;
 }

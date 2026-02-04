@@ -1760,6 +1760,220 @@ export class ImageGenerator {
              };
         }
 
+        // Handle Environment Generation
+        if (request.autoGenerateEnvironments || request.environmentGenerationOnly) {
+            console.error(`DEBUG - Auto-generating environments...`);
+            const envsDir = path.join(storyDir, 'environments');
+            FileHandler.ensureDirectory(envsDir);
+            
+            // Regex to find Environment/Setting sections
+            // Matches: ## Environment Setup (Scene 1) ... content ...
+            const envSectionRegex = /(?:^|\n)#{2,3}\s*(?:Environment|Setting|Location)s?\s*(?:Setup)?(?:\s*\(.*?\))?(?::)?(?:\n|$)([\s\S]*?)(?=(?:\n#{1,3}|\n#{1,2}\s*Page|$))/gi;
+            
+            // NEW: Regex to find "ENVIRONMENT ANCHORS" style lists (common in Global Prompt Rules)
+            // Matches: - **ENVIRONMENT ANCHORS**: \n ... indented items ...
+            const envAnchorsRegex = /(?:^|\n)\s*[\-\*]\s*\*\*(?:ENVIRONMENT|SETTING|LOCATION)(?:\s+ANCHORS?)?\*\*:(?:\s*\n)([\s\S]*?)(?=(?:\n\s*[\-\*]\s*\*\*|\n#|$))/gi;
+            
+            const allEnvSections: string[] = [];
+            let match;
+            let envStoryContentModified = false;
+            
+            // 1. Collect Header-based sections
+            while ((match = envSectionRegex.exec(globalContext)) !== null) {
+                console.error(`DEBUG - Found Environment Section (Header): ${match[0].trim().split('\n')[0]}`);
+                allEnvSections.push(match[1]);
+            }
+
+            // 2. Collect List-based Anchors
+            while ((match = envAnchorsRegex.exec(globalContext)) !== null) {
+                console.error(`DEBUG - Found Environment Anchors (List): ENVIRONMENT ANCHORS`);
+                allEnvSections.push(match[1]);
+            }
+            
+            // NEW: Auto-Fix / Auto-Extract Environments if missing
+            if (allEnvSections.length === 0) {
+                 console.error(`DEBUG - No explicit Environment Setup found. Analyzing story to extract settings...`);
+                 
+                 const analysisPrompt = `Analyze the following manga story script. Identify the key recurring locations/settings (Environment Anchors) where the scenes take place.
+                 
+                 Generate a Markdown section titled "## Environment Setup".
+                 Under it, list the environments as bullet points in this EXACT format:
+                 - **Name**: Visual description of the setting, furniture, lighting, and atmosphere.
+                 
+                 Only include major locations that appear in the script. Keep descriptions visual and concise for an artist.
+                 Do not include characters in the descriptions.
+                 
+                 STORY SCRIPT:
+                 ${storyContent.substring(0, 15000)} // Limit context if needed
+                 `;
+
+                 try {
+                     const extractionResponse = await this.ai.models.generateContent({
+                        model: 'gemini-2.0-flash', // Use a text model for analysis if available, or fall back to image model which handles text too
+                        config: {
+                            responseModalities: ['TEXT'],
+                            safetySettings: this.getSafetySettings(),
+                        } as any,
+                        contents: [{ role: 'user', parts: [{ text: analysisPrompt }] }],
+                     });
+
+                     if (extractionResponse.candidates && extractionResponse.candidates[0]?.content?.parts?.[0]?.text) {
+                         const extractedText = extractionResponse.candidates[0].content.parts[0].text.trim();
+                         console.error(`DEBUG - Extracted Environments:\n${extractedText}`);
+                         
+                         // Append to Story File
+                         if (extractedText.includes('## Environment Setup') || extractedText.includes('**')) {
+                             // Ensure we have a clean separation
+                             const appendText = `\n\n${extractedText}`;
+                             newStoryContent += appendText;
+                             // We also need to update globalContext so the regex below finds it
+                             globalContext += appendText;
+                             envStoryContentModified = true;
+                             
+                             // Re-run regex to populate allEnvSections
+                             let newMatch;
+                             while ((newMatch = envSectionRegex.exec(globalContext)) !== null) {
+                                // Avoid adding duplicates if regex finds old ones (unlikely given length check)
+                                if (!allEnvSections.includes(newMatch[1])) {
+                                    allEnvSections.push(newMatch[1]);
+                                }
+                             }
+                             // Just in case the LLM used the List format (unlikely given prompt)
+                             while ((newMatch = envAnchorsRegex.exec(globalContext)) !== null) {
+                                 if (!allEnvSections.includes(newMatch[1])) {
+                                     allEnvSections.push(newMatch[1]);
+                                 }
+                             }
+                             
+                             // If still empty, maybe the LLM output *is* the list itself without the header capture group catching it perfectly?
+                             // Fallback: Use the raw extracted text as the section content if regex failed but text looks valid.
+                             if (allEnvSections.length === 0 && extractedText.includes('**')) {
+                                 allEnvSections.push(extractedText);
+                             }
+                         }
+                     }
+                 } catch (e) {
+                     console.error(`DEBUG - Failed to auto-extract environments:`, e);
+                 }
+            }
+
+            // Process all found sections
+            for (const sectionContent of allEnvSections) {
+                 // Parse bullet points: - **Name:** Description
+                 const envItemRegex = /^\s*[\*\-]\s*\*\*([^\*:\n]+)(?::)?\*\*(.*)$/gm;
+                 let envItemMatch;
+                 
+                 while ((envItemMatch = envItemRegex.exec(sectionContent)) !== null) {
+                     const fullLine = envItemMatch[0];
+                     const envName = envItemMatch[1].trim();
+                     const envDesc = envItemMatch[2].trim();
+                     
+                     const safeName = envName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+                     const envFilename = `${safeName}_environment.png`;
+                     const envRelPath = path.join('environments', envFilename);
+                     const envAbsPath = path.join(envsDir, envFilename);
+                     
+                     // Check if link already exists in the line
+                     if (fullLine.includes(envFilename)) {
+                         const existingRes = FileHandler.findInputFile(envAbsPath);
+                         if (existingRes.found) {
+                             if (!loadedGlobalImagePaths.has(existingRes.filePath!)) {
+                                 try {
+                                     const b64 = await FileHandler.readImageAsBase64(existingRes.filePath!);
+                                     globalReferenceImages.push({ data: b64, mimeType: 'image/png', sourcePath: existingRes.filePath! });
+                                     loadedGlobalImagePaths.add(existingRes.filePath!);
+                                     console.error(`DEBUG - Loaded existing environment ref: ${envName}`);
+                                 } catch (e) {}
+                             }
+                             continue;
+                         }
+                     }
+
+                     console.error(`DEBUG - Processing environment: ${envName}`);
+                     
+                     // Check if file exists on disk
+                     const existingRes = FileHandler.findInputFile(envAbsPath);
+                     if (existingRes.found) {
+                         if (!loadedGlobalImagePaths.has(existingRes.filePath!)) {
+                             try {
+                                 const b64 = await FileHandler.readImageAsBase64(existingRes.filePath!);
+                                 globalReferenceImages.push({ data: b64, mimeType: 'image/png', sourcePath: existingRes.filePath! });
+                                 loadedGlobalImagePaths.add(existingRes.filePath!);
+                                 console.error(`DEBUG - Loaded existing environment (disk): ${envName}`);
+                                 
+                                 // Add link if missing
+                                 if (!fullLine.includes(envFilename)) {
+                                     newStoryContent = newStoryContent.replace(fullLine, `${fullLine} ![${envName}](${envRelPath})`);
+                                     envStoryContentModified = true;
+                                 }
+                             } catch (e) {}
+                         }
+                     } else {
+                         // Generate Environment Image
+                         console.error(`DEBUG - Generating Environment: ${envName}...`);
+                         const envPrompt = `Environment Design: ${envName}. ${envDesc}.
+                         ${request.style || 'shonen'} manga style, black and white background art, detailed, high quality.
+                         NO CHARACTERS. Scenery only.
+                         Establish the layout, furniture, and atmosphere described.
+                         ${request.color ? 'Full color.' : 'Black and white, screentones.'}`;
+                         
+                         try {
+                            const envResponse = await this.ai.models.generateContent({
+                                model: this.modelName,
+                                config: {
+                                  responseModalities: request.includeText ? ['IMAGE', 'TEXT'] : ['IMAGE'],
+                                  imageConfig: { aspectRatio: '16:9' }, 
+                                  safetySettings: this.getSafetySettings(),
+                                } as any,
+                                contents: [{ role: 'user', parts: [{ text: envPrompt }] }],
+                            });
+
+                            if (envResponse.candidates && envResponse.candidates[0]?.content?.parts) {
+                                for (const part of envResponse.candidates[0].content.parts) {
+                                    let b64: string | undefined;
+                                    if (part.inlineData?.data) b64 = part.inlineData.data;
+                                    else if (part.text && this.isValidBase64ImageData(part.text)) b64 = part.text;
+
+                                    if (b64) {
+                                        const fullPath = await FileHandler.saveImageFromBase64(b64, envsDir, envFilename);
+                                        generatedFiles.push(fullPath);
+                                        
+                                        globalReferenceImages.push({ data: b64, mimeType: 'image/png', sourcePath: fullPath });
+                                        loadedGlobalImagePaths.add(fullPath);
+                                        
+                                        // Update Text
+                                        newStoryContent = newStoryContent.replace(fullLine, `${fullLine} ![${envName}](${envRelPath})`);
+                                        envStoryContentModified = true;
+                                        
+                                        console.error(`DEBUG - Generated Environment: ${fullPath}`);
+                                        break;
+                                    }
+                                }
+                            }
+                         } catch (e) {
+                             console.error(`DEBUG - Failed to generate environment ${envName}:`, e);
+                         }
+                     }
+                 }
+            }
+            
+            if (envStoryContentModified) {
+                await FileHandler.saveTextFile(storyAbsPath, newStoryContent);
+                console.error(`DEBUG - Updated story file with environment links.`);
+                globalContext += "\n(Note: Environment references have been auto-generated and attached)";
+            }
+            
+            if (request.environmentGenerationOnly) {
+                 const successMsg = `Successfully generated/verified environments for story. Skipping page generation.`;
+                 console.error(`DEBUG - ${successMsg}`);
+                 return {
+                     success: true,
+                     message: successMsg,
+                     generatedFiles
+                 };
+            }
+        }
+
         
         // 2. Fallback: Single Story Character (removed to prevent generic fallback)
         // We rely on LLM extraction or manual character references.

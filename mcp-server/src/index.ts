@@ -475,6 +475,16 @@ class NanoBananaServer {
                   description: 'Only generate character sheets, skip manga page generation',
                   default: false,
                 },
+                generate_environments: {
+                  type: 'boolean',
+                  description: 'Auto-generate environment backgrounds from story description',
+                  default: false,
+                },
+                environment_generation_only: {
+                  type: 'boolean',
+                  description: 'Only generate environment backgrounds, skip manga page generation',
+                  default: false,
+                },
               },
               required: [],
             },
@@ -627,6 +637,8 @@ class NanoBananaServer {
                 (args?.['no-preview'] as boolean),
               autoGenerateCharacters: args?.generate_characters as boolean,
               characterGenerationOnly: args?.character_generation_only as boolean,
+              autoGenerateEnvironments: args?.generate_environments as boolean,
+              environmentGenerationOnly: args?.environment_generation_only as boolean,
               includeText: args?.include_text as boolean,
             };
             response = await this.imageGenerator.generateMangaPage(mangaRequest);
