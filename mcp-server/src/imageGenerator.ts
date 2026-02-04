@@ -653,9 +653,9 @@ export class ImageGenerator {
         
         Output strictly in JSON format:
         {
-            "score": number, // 1-10. Score < 9.5 is a FAIL. Be extremely strict.
+            "score": number, // 1-10. Score < 8.5 is a FAIL. Be extremely strict.
             "reason": "string", // Specific feedback on what is wrong.
-            "pass": boolean // true if score >= 9.5, false otherwise.
+            "pass": boolean // true if score >= 8.5, false otherwise.
         }`;
 
         const parts: any[] = [{ text: prompt }];
@@ -2297,10 +2297,6 @@ Use the attached images as strict visual references.
             globalReferenceImages.forEach(img => includedImages.push(`Global Ref: ${path.basename(img.sourcePath)}`));
             
             // Page Refs
-            // Note: We iterated pageImagePaths earlier but didn't store source paths in a list, 
-            // but we can infer them or just log what we found.
-            // Let's re-check what was actually added.
-            // Actually, we can just iterate pageImagePaths again since we only added if found.
             for (const imgPath of pageImagePaths) {
                  if (!globalImagePaths.includes(imgPath)) {
                       const fileRes = FileHandler.findInputFile(imgPath);
@@ -2325,86 +2321,98 @@ Use the attached images as strict visual references.
             console.error('DEBUG - Failed to log attached references:', e);
         }
 
-        try {
-            const response = await this.ai.models.generateContent({
-              model: this.modelName,
-              contents: [{ role: 'user', parts: parts }],
-              config: {
-                responseModalities: request.includeText ? ['IMAGE', 'TEXT'] : ['IMAGE'],
-                imageConfig: {
-                  aspectRatio: this.getAspectRatioString(request.layout),
-                },
-                safetySettings: this.getSafetySettings(),
-              } as any,
-            });
-    
-            let imageSaved = false;
-            if (response.candidates && response.candidates[0]?.content?.parts) {
-              for (const part of response.candidates[0].content.parts) {
-                let imageBase64: string | undefined;
-                if (part.inlineData?.data) {
-                  imageBase64 = part.inlineData.data;
-                } else if (part.text && this.isValidBase64ImageData(part.text)) {
-                  imageBase64 = part.text;
-                }
-    
-                if (imageBase64) {
-                  // Determine filename based on page header or index
-                  const filenamePrompt = `manga ${page.header}`;
-                  const filename = FileHandler.generateFilename(
-                    filenamePrompt,
-                    'png',
-                    0,
-                  );
-                  const fullPath = await FileHandler.saveImageFromBase64(
-                    imageBase64,
-                    FileHandler.ensureOutputDirectory(),
-                    filename,
-                  );
-                  generatedFiles.push(fullPath);
-                  await this.logGeneration(this.modelName, [fullPath]);
-                  previousPagePath = fullPath; // Update for next iteration
-                  imageSaved = true;
-                  console.error(`DEBUG - Generated ${page.header}: ${fullPath}`);
-                  
-                  // Auto-Review Step
-                  const review = await this.reviewGeneratedImage(fullPath, globalReferenceImages);
-                  if (!review.pass) {
-                      const errorMsg = `Auto-Review FAILED for ${page.header}. Score: ${review.score}/10. Reason: ${review.reason}. Stopping generation.`;
-                      console.error(`❌ ${errorMsg}`);
+        // RETRY LOOP FOR GENERATION
+        let attemptSuccess = false;
+        let finalGeneratedPath = "";
+
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            console.error(`DEBUG - Generating ${page.header} (Attempt ${attempt}/3)...`);
+            
+            try {
+                const response = await this.ai.models.generateContent({
+                  model: this.modelName,
+                  contents: [{ role: 'user', parts: parts }],
+                  config: {
+                    responseModalities: request.includeText ? ['IMAGE', 'TEXT'] : ['IMAGE'],
+                    imageConfig: {
+                      aspectRatio: this.getAspectRatioString(request.layout),
+                    },
+                    safetySettings: this.getSafetySettings(),
+                  } as any,
+                });
+        
+                let imageSaved = false;
+                if (response.candidates && response.candidates[0]?.content?.parts) {
+                  for (const part of response.candidates[0].content.parts) {
+                    let imageBase64: string | undefined;
+                    if (part.inlineData?.data) {
+                      imageBase64 = part.inlineData.data;
+                    } else if (part.text && this.isValidBase64ImageData(part.text)) {
+                      imageBase64 = part.text;
+                    }
+        
+                    if (imageBase64) {
+                      // Save to the canonical filename
+                      const filename = FileHandler.generateFilename(
+                        `manga ${page.header}`,
+                        'png',
+                        0,
+                      );
+                      const fullPath = await FileHandler.saveImageFromBase64(
+                        imageBase64,
+                        FileHandler.ensureOutputDirectory(),
+                        filename,
+                      );
                       
-                      // Optionally delete the bad file? 
-                      // await fs.promises.unlink(fullPath); 
-                      // Keeping it for user inspection is usually better.
+                      // Auto-Review Step
+                      const review = await this.reviewGeneratedImage(fullPath, globalReferenceImages);
                       
-                      return {
-                          success: false,
-                          message: `Generation stopped due to consistency check failure on ${page.header}`,
-                          error: errorMsg,
-                          generatedFiles: generatedFiles // Return what we have so far
-                      };
+                      if (review.pass) {
+                          generatedFiles.push(fullPath);
+                          await this.logGeneration(this.modelName, [fullPath]);
+                          previousPagePath = fullPath; // Update for next iteration
+                          finalGeneratedPath = fullPath;
+                          attemptSuccess = true;
+                          imageSaved = true;
+                          console.error(`DEBUG - SUCCESS: Generated ${page.header} on attempt ${attempt}. Score: ${review.score}`);
+                          break; 
+                      } else {
+                          const errorMsg = `Review FAILED for ${page.header} (Attempt ${attempt}). Score: ${review.score}/10. Reason: ${review.reason}.`;
+                          console.error(`❌ ${errorMsg}`);
+                          
+                          // Rename failed file to avoid overwrite and allow inspection
+                          const failedFilename = filename.replace('.png', `_FAILED_try${attempt}.png`);
+                          const failedPath = path.join(path.dirname(fullPath), failedFilename);
+                          await fs.promises.rename(fullPath, failedPath);
+                          console.error(`DEBUG - Renamed failed image to: ${failedFilename}`);
+                          
+                          if (attempt === 3) {
+                              return {
+                                  success: false,
+                                  message: `Generation stopped. Failed to generate consistent image for ${page.header} after 3 attempts.`,
+                                  error: errorMsg,
+                                  generatedFiles: generatedFiles
+                              };
+                          }
+                      }
+                    }
                   }
-                  
-                  break; 
                 }
-              }
-            }
+                
+                if (attemptSuccess) break; // Break retry loop
 
-            if (!imageSaved) {
-                const msg = `Failed to generate image data for ${page.header}`;
-                console.error(`DEBUG - ${msg}`);
-                if (!firstError) firstError = msg;
-            }
+                if (!imageSaved && !attemptSuccess && attempt === 3) {
+                    const msg = `Failed to generate image data for ${page.header}`;
+                    console.error(`DEBUG - ${msg}`);
+                    if (!firstError) firstError = msg;
+                }
 
-        } catch (error: unknown) {
-            const msg = this.handleApiError(error);
-            console.error(`DEBUG - Error generating ${page.header}:`, msg);
-            if (!firstError) firstError = msg;
-            // Decide whether to continue? For sequential manga, failure in middle breaks chain.
-            // But maybe we should try best effort for remaining pages? 
-            // Let's continue but previousPagePath will stay as the last successful one (or null).
+            } catch (error: unknown) {
+                const msg = this.handleApiError(error);
+                console.error(`DEBUG - Error generating ${page.header} (Attempt ${attempt}):`, msg);
+                if (attempt === 3 && !firstError) firstError = msg;
+            }
         }
-
       }
 
       if (generatedFiles.length > 0) {
