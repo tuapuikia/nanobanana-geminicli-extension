@@ -646,17 +646,28 @@ export class ImageGenerator {
         Task: Compare the "Generated Image" with the provided "Reference Images".
         
         EVALUATION CRITERIA (Weighted):
-        1. [CRITICAL] Character Face & Hair (50%): Does the character look exactly like the reference? Check eye shape, hair style/bangs, and facial structure.
-        2. [CRITICAL] Environment & Layout (30%): Does the background match the "Top View" or "Main View" environment references (if provided)? Are furniture/walls in the correct relative positions?
+        1. [CRITICAL] Character Face & Hair (50%): Does the character look EXACTLY like the reference? Check eye shape, hair style/bangs, and facial structure.
+        2. [CRITICAL] Environment & Layout (30%): Does the background match the "Far View" environment reference?
         3. [IMPORTANT] Outfit (20%): Are they wearing the correct clothes?
+
+        SCORING RUBRIC (Be Extremely Strict):
+        - 10: Perfect match. No errors.
+        - 9: Minor artistic interpretation, but all features (hair, eyes, furniture) are correct.
+        - 7-8: Good likeness, but minor errors (e.g. wrong eye color, slightly wrong hair length, wrong furniture color, wrong dog breed).
+        - 5-6: Recognizable but significant errors (e.g. wrong hairstyle/bangs, wrong outfit, furniture in wrong place).
+        - 1-4: Completely wrong character or environment.
+
+        CRITICAL PENALTIES:
+        - If the Character's Face or Hair (especially bangs) is wrong, the score MUST be below 7.
+        - If a pet (dog/cat) looks like a different breed, penalize by at least 2 points.
         
         Ignore style differences (e.g. B&W vs Color) unless it alters physical features.
         
         Output strictly in JSON format:
         {
-            "score": number, // 1-10. Score < ${minScore} is a FAIL. Be extremely strict.
+            "score": number, // 1-10. Be strict.
             "reason": "string", // Specific feedback on what is wrong.
-            "pass": boolean // true if score >= ${minScore}, false otherwise.
+            "pass": boolean // derived from score.
         }`;
 
         const parts: any[] = [{ text: prompt }];
@@ -690,7 +701,6 @@ export class ImageGenerator {
         const result = JSON.parse(responseText);
         
         // Enforce logic: Trust the score, but override the boolean based on strict math.
-        // This fixes cases where LLM says "Score: 7, Pass: false" when minScore is 7.
         const calculatedPass = result.score >= minScore;
         
         const logMsg = `[Auto-Review] Score: ${result.score}/10 (Min: ${minScore}). Pass: ${calculatedPass}. Reason: ${result.reason}`;
