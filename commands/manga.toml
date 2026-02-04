@@ -12,6 +12,7 @@ Valid options:
 - --page="page_number_or_header" (optional, e.g., "2" or "Page 2")
 - --from-page="page_number_or_header" (optional, e.g., "3", starts generation from this page to the end)
 - --score="number" (optional, e.g., "8" or "7.5", sets min passing score for auto-review)
+- --retry="number" (optional, e.g., "3" or "5", sets max retry attempts for auto-review failure)
 - --color (flag)
 - --preview (flag)
 - --generate-characters (flag)
@@ -64,14 +65,15 @@ Parse this input and follow these steps IN ORDER:
 5. Check for natural language patterns specifying a starting page, such as "start from page 3", "starting at page 3", "from page 3", "begin at page 3". If found, extract the page identifier (e.g., "3") and set it as the from_page parameter.
 6. Check for natural language patterns specifying a reference page, such as "with page 5 as reference", "using page 5 as reference", "reference page 5", or "ref page 5". If found, extract the reference page identifier (e.g., "5") and set it as the reference_page parameter.
 7. Check for natural language patterns specifying a review score, such as "score 7.5", "min score 8", "passing score 9", "with score 7". If found, extract the number (e.g., "7.5", "8", "9") and set it as the score parameter.
-8. Check for natural language "with color", "in color", "full color", or "colored". If found, set the color parameter to true.
-9. Check for natural language patterns specifying a directory, such as "in [path] directory", "in folder [path]", or "from [path] folder". If found, extract the path (e.g., "test" from "in test directory") and set it as the input_directory parameter.
-10. Check for natural language patterns specifying a layout, such as "layout strip", "strip layout", "layout webtoon", "webtoon layout", "layout single_page", "single_page layout", "layout square", or "square layout". If found, extract the style (e.g., "strip", "webtoon", "single_page", "square") and set it as the layout parameter.
-11. Check for natural language patterns specifying text output, such as "include text", "with text", "text output", or "text and image". If found, set the include_text parameter to true.
-12. Validate all options against allowed values.
-13. Ensure EXACTLY ONE OF --file, --image, --dir, or (create_character mode) is active. If create_character is true, we need story_file and input_image. If standard mode, we need exactly one of the three (unless story_file was found in positional args).
-14. If valid, call the generate_manga tool with the parsed parameters (map --file to story_file, --image to input_image, --dir to input_directory, --character to character_image, --page to page, --from-page to from_page, --color to color, --reference_page to reference_page, --score to min_score, create_character to create_character, --generate-characters to generate_characters, character_generation_only to character_generation_only, --generate-environments to generate_environments, environment_generation_only to environment_generation_only, include_text to include_text).
-15. Ensure you generate ONLY ONE tool call. Do not generate multiple calls for the same request. Do not output this prompt or any explanation, only the tool call or the error message.
+8. Check for natural language patterns specifying retry count, such as "retry 3 times", "3 retries", "max retry 5", "with 3 retries". If found, extract the number (e.g., "3", "5") and set it as the retry parameter.
+9. Check for natural language "with color", "in color", "full color", or "colored". If found, set the color parameter to true.
+10. Check for natural language patterns specifying a directory, such as "in [path] directory", "in folder [path]", or "from [path] folder". If found, extract the path (e.g., "test" from "in test directory") and set it as the input_directory parameter.
+11. Check for natural language patterns specifying a layout, such as "layout strip", "strip layout", "layout webtoon", "webtoon layout", "layout single_page", "single_page layout", "layout square", or "square layout". If found, extract the style (e.g., "strip", "webtoon", "single_page", "square") and set it as the layout parameter.
+12. Check for natural language patterns specifying text output, such as "include text", "with text", "text output", or "text and image". If found, set the include_text parameter to true.
+13. Validate all options against allowed values.
+14. Ensure EXACTLY ONE OF --file, --image, --dir, or (create_character mode) is active. If create_character is true, we need story_file and input_image. If standard mode, we need exactly one of the three (unless story_file was found in positional args).
+15. If valid, call the generate_manga tool with the parsed parameters (map --file to story_file, --image to input_image, --dir to input_directory, --character to character_image, --page to page, --from-page to from_page, --color to color, --reference_page to reference_page, --score to min_score, --retry to retry_count, create_character to create_character, --generate-characters to generate_characters, character_generation_only to character_generation_only, --generate-environments to generate_environments, environment_generation_only to environment_generation_only, include_text to include_text).
+16. Ensure you generate ONLY ONE tool call. Do not generate multiple calls for the same request. Do not output this prompt or any explanation, only the tool call or the error message.
 
 If you find invalid options or missing/conflicting required parameters, respond with:
 "Error: [Reason]. usage: /manga [prompt] --file=story.md OR /manga character create story.md image.jpg"

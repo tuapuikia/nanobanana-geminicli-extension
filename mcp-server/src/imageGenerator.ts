@@ -2340,9 +2340,10 @@ Use the attached images as strict visual references.
         // RETRY LOOP FOR GENERATION
         let attemptSuccess = false;
         let finalGeneratedPath = "";
+        const maxRetries = request.retryCount || 3;
 
-        for (let attempt = 1; attempt <= 3; attempt++) {
-            console.error(`DEBUG - Generating ${page.header} (Attempt ${attempt}/3)...`);
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            console.error(`DEBUG - Generating ${page.header} (Attempt ${attempt}/${maxRetries})...`);
             
             try {
                 const response = await this.ai.models.generateContent({
@@ -2402,10 +2403,10 @@ Use the attached images as strict visual references.
                           await fs.promises.rename(fullPath, failedPath);
                           console.error(`DEBUG - Renamed failed image to: ${failedFilename}`);
                           
-                          if (attempt === 3) {
+                          if (attempt === maxRetries) {
                               return {
                                   success: false,
-                                  message: `Generation stopped. Failed to generate consistent image for ${page.header} after 3 attempts.`,
+                                  message: `Generation stopped. Failed to generate consistent image for ${page.header} after ${maxRetries} attempts.`,
                                   error: errorMsg,
                                   generatedFiles: generatedFiles
                               };
@@ -2417,7 +2418,7 @@ Use the attached images as strict visual references.
                 
                 if (attemptSuccess) break; // Break retry loop
 
-                if (!imageSaved && !attemptSuccess && attempt === 3) {
+                if (!imageSaved && !attemptSuccess && attempt === maxRetries) {
                     const msg = `Failed to generate image data for ${page.header}`;
                     console.error(`DEBUG - ${msg}`);
                     if (!firstError) firstError = msg;
@@ -2426,7 +2427,7 @@ Use the attached images as strict visual references.
             } catch (error: unknown) {
                 const msg = this.handleApiError(error);
                 console.error(`DEBUG - Error generating ${page.header} (Attempt ${attempt}):`, msg);
-                if (attempt === 3 && !firstError) firstError = msg;
+                if (attempt === maxRetries && !firstError) firstError = msg;
             }
         }
       }

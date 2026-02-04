@@ -35,6 +35,7 @@ export interface ImageGenerationRequest {
   environmentGenerationOnly?: boolean;
   includeText?: boolean;
   minScore?: number;
+  retryCount?: number;
 }
 
 export interface ImageGenerationResponse {
@@ -109,4 +110,5 @@ export interface MangaPromptArgs {
   environment_generation_only?: boolean;
   include_text?: boolean;
   min_score?: number;
+  retry_count?: number;
 }
