@@ -664,8 +664,9 @@ export class ImageGenerator {
 
         CRITICAL PENALTIES:
         - If the visual style (shading/art style) clashes with the "Previous Page Reference", the score MUST be below 8.
-        - IF the character is visible in the Previous Page but looks different here, the score MUST be below 7.
-        - If the Character's Face or Hair is wrong vs the MAIN Character Reference, the score MUST be below 7.
+        - [STRICT] If the character is visible in the "Previous Page Reference", compare their FACIAL FEATURES (eyes, nose, jawline) directly. If the face looks like a different person (even with a different expression), the score MUST be below 5. Expression changes are allowed, but the underlying facial structure must be identical.
+        - [STRICT] HAIR: The hairstyle (bangs, length, volume) must match the Main Reference exactly. If the hair is different, the score MUST be below 5.
+        - [STRICT] CLOTHING: The costume DESIGN must be consistent with the reference. Exceptions are allowed ONLY for "Battle Damage" (tearing, dirt, broken armor) if implied by the story. However, if the BASE DESIGN changes (e.g. short sleeves become long sleeves without damage, or different collar type), the score MUST be below 5.
         - If the image contradicts the Story Description (e.g. "fat" in text but "slim" in image), the score MUST be below 5.
         
         Ignore style differences (e.g. B&W vs Color) unless it alters physical features.
@@ -1208,7 +1209,8 @@ export class ImageGenerator {
 
       // Parse Story Content for Pages
       // Splits by headers like "# Page 1", "## Page 2", "Page 3:"
-      const pageRegex = /(?:^|\n)(#{1,3}\s*Page\s*\d+|Page\s*\d+:)/i;
+      // CAPTURE THE FULL LINE to avoid title text leaking into content
+      const pageRegex = /(?:^|\n)((?:#{1,3}\s*Page\s*\d+|Page\s*\d+:)[^\n]*)/i;
       const sections = storyContent.split(pageRegex);
       
       let globalContext = '';
@@ -2263,7 +2265,8 @@ export class ImageGenerator {
 Use the attached images as strict visual references.
 1. **Characters**: Maintain specific appearance (hairstyle, clothing, features) consistently.
 2. **Environments**: The attached "Far View" image is your STRICT VISUAL ANCHOR. Use it to establish the room's layout, furniture placement, and atmosphere. Maintain this location's design exactly.
-3. **Continuity**: If a "Previous Page" reference is attached, you MUST ensure seamless continuity. The placement of objects and characters must logically follow the previous panel. Do not teleport furniture.`;
+3. **Continuity**: If a "Previous Page" reference is attached, you MUST ensure seamless continuity. The placement of objects and characters must logically follow the previous panel. Do not teleport furniture.
+4. **Text**: Do NOT render the page title ("${page.header.replace(/^[#\s]+/, '')}") as text in the image. You MAY render narrative captions if they are explicitly part of the panel description (e.g. "Caption: ..."), but never the page header itself.`;
         
         if (request.color) {
             fullPrompt += "\n\n[IMPORTANT STYLE OVERRIDE]\nGENERATE THIS PAGE IN FULL COLOR. IGNORE ANY PREVIOUS 'BLACK AND WHITE' INSTRUCTIONS.";
@@ -2438,7 +2441,14 @@ Use the attached images as strict visual references.
                           console.error(`DEBUG - Renamed failed image to: ${failedFilename}`);
                           
                           // Set correction instruction for next attempt
-                          correctionInstruction = `\n\n[CORRECTION INSTRUCTION]\nThe previous generation was rejected (Score: ${review.score}/10). \nReason: ${review.reason}\nFIX THIS SPECIFIC ISSUE IN THE NEW GENERATION. Pay close attention to the specific feedback provided.`;
+                          correctionInstruction = `\n\n[CRITICAL CORRECTION REQUIRED]\nThe previous generation was REJECTED (Score: ${review.score}/10).
+**FAILURE REASON**: ${review.reason}
+**INSTRUCTION**: You MUST fix the specific issue identified above.
+- If the face was wrong, strictly follow the facial features in the attached reference.
+- If the hair was wrong, fix the hairstyle to match the reference exactly.
+- If the costume was wrong, revert to the base design.
+- If the environment was wrong, align with the "Far View" anchor.
+Do not repeat the same mistake.`;
 
                           if (attempt === maxRetries) {
                               return {
