@@ -653,9 +653,9 @@ export class ImageGenerator {
         
         Output strictly in JSON format:
         {
-            "score": number, // 1-10. Score < 7 is a FAIL. Be strict.
-            "reason": "string", // Specific feedback on what is wrong (e.g. "Hair bangs are wrong style", "Sofa is on wrong wall").
-            "pass": boolean // true if score >= 7, false otherwise.
+            "score": number, // 1-10. Score < 9.5 is a FAIL. Be extremely strict.
+            "reason": "string", // Specific feedback on what is wrong.
+            "pass": boolean // true if score >= 9.5, false otherwise.
         }`;
 
         const parts: any[] = [{ text: prompt }];
