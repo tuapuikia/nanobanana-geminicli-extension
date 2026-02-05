@@ -2277,7 +2277,38 @@ Use the attached images as strict visual references.
         }
 
         // Prepare Message Parts
-        const parts: any[] = [{ text: fullPrompt }];
+        const parts: any[] = [];
+        
+        // 1. Build Reference Mapping Table for the Prompt
+        let referenceTags = "[STRICT REFERENCE MAPPING]\nThe following images are attached. You MUST use the specific image when the corresponding Name/Tag appears in the story:\n";
+        
+        // Global Refs
+        for (const img of globalReferenceImages) {
+            const label = path.basename(img.sourcePath, path.extname(img.sourcePath)).replace(/_/g, ' ');
+            // Simple heuristic: "kenji_portrait" -> Tag: "kenji"
+            // "unity_hq_far" -> Tag: "unity hq"
+            const tag = label.replace(/\s+(portrait|sheet|reference|ref|far|view|env|environment)$/i, '').trim();
+            referenceTags += `- Tag: "${tag}" matches Reference Image: "${label}"\n`;
+        }
+
+        // Page Refs
+        const pageImagePaths = this.extractImagePaths(page.content);
+        for (const imgPath of pageImagePaths) {
+            if (globalImagePaths.includes(imgPath)) continue;
+             const fileRes = FileHandler.findInputFile(imgPath);
+             if (fileRes.found) {
+                const label = path.basename(fileRes.filePath!, path.extname(fileRes.filePath!)).replace(/_/g, ' ');
+                const tag = label.replace(/\s+(portrait|sheet|reference|ref|far|view|env|environment)$/i, '').trim();
+                referenceTags += `- Tag: "${tag}" matches Reference Image: "${label}"\n`;
+             }
+        }
+        
+        referenceTags += "\n[INSTRUCTION]\nWhen you see a Tag in the text (e.g., 'Kenji enters'), look up the corresponding 'Reference Image' above and Apply it STRICTLY.\n";
+
+        // Append to fullPrompt
+        fullPrompt += `\n\n${referenceTags}`;
+
+        parts.push({ text: fullPrompt });
 
         // Add Global References with Labels
         for (const img of globalReferenceImages) {
@@ -2287,7 +2318,6 @@ Use the attached images as strict visual references.
         }
 
         // Add Page Specific References with Labels
-        const pageImagePaths = this.extractImagePaths(page.content);
         for (const imgPath of pageImagePaths) {
             // Avoid duplicates if already in global
             if (globalImagePaths.includes(imgPath)) continue;
