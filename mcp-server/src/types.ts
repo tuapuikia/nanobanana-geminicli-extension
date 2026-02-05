@@ -35,6 +35,9 @@ export interface ImageGenerationRequest {
   environmentGenerationOnly?: boolean;
   includeText?: boolean;
   minScore?: number;
+  minLikeness?: number;
+  minStory?: number;
+  minContinuity?: number;
   retryCount?: number;
 }
 
@@ -110,5 +113,8 @@ export interface MangaPromptArgs {
   environment_generation_only?: boolean;
   include_text?: boolean;
   min_score?: number;
+  min_likeness?: number;
+  min_story?: number;
+  min_continuity?: number;
   retry_count?: number;
 }

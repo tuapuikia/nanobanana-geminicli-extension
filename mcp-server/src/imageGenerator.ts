@@ -624,9 +624,17 @@ export class ImageGenerator {
   private async reviewGeneratedImage(
     generatedImagePath: string,
     references: { data: string; mimeType: string; sourcePath: string }[],
-    minScore: number = 8,
-    storyContext?: string,
+    options: {
+        minScore?: number;
+        minLikeness?: number;
+        minStory?: number;
+        minContinuity?: number;
+        storyContext?: string;
+    } = { minScore: 8 }
   ): Promise<{ pass: boolean; score: number; reason: string }> {
+    const minScore = options.minScore || 8;
+    const { storyContext, minLikeness, minStory, minContinuity } = options;
+
     console.error(`DEBUG - Auto-Reviewing generated image for character consistency (Min Score: ${minScore})...`);
     
     // Filter references to prioritize characters (based on path/name)
@@ -681,7 +689,7 @@ export class ImageGenerator {
             "story_score": number, // 0-100
             "total_score": number, // 0-300
             "reason": "string", // Specific feedback on what is wrong.
-            "pass": boolean // true if total_score >= 250
+            "pass": boolean // true if total_score >= 250 AND likeness_score >= 70
         }`;
 
         const parts: any[] = [{ text: prompt }];
@@ -714,10 +722,23 @@ export class ImageGenerator {
 
         const result = JSON.parse(responseText);
         
-        // Enforce logic: Total score < 250 is a failure.
-        const calculatedPass = result.total_score >= 250;
+        // Dynamic threshold based on minScore (1-10). Default 8 -> 240/300.
+        const scoreThreshold = minScore * 30;
+
+        // Specific thresholds
+        const thresholdLikeness = minLikeness ? minLikeness * 10 : 70; // Default 70% safety
+        const thresholdStory = minStory ? minStory * 10 : 0;
+        const thresholdContinuity = minContinuity ? minContinuity * 10 : 0;
+
+        // Enforce logic: Total score < threshold is a failure.
+        // Also enforce minimum likeness score (70% or user defined)
+        const calculatedPass = 
+            result.total_score >= scoreThreshold && 
+            result.likeness_score >= thresholdLikeness &&
+            result.story_score >= thresholdStory &&
+            result.continuity_score >= thresholdContinuity;
         
-        const logMsg = `[Auto-Review] Model: ${this.modelName}. Total: ${result.total_score}/300% (Likeness: ${result.likeness_score}%, Continuity: ${result.continuity_score}%, Story: ${result.story_score}%). Threshold: 250%. Pass: ${calculatedPass}. Reason: ${result.reason}`;
+        const logMsg = `[Auto-Review] Model: ${this.modelName}. Total: ${result.total_score}/300% (Likeness: ${result.likeness_score}%, Continuity: ${result.continuity_score}%, Story: ${result.story_score}%). Threshold: ${scoreThreshold}% & Likeness >= ${thresholdLikeness}%. Pass: ${calculatedPass}. Reason: ${result.reason}`;
         console.error(`DEBUG - ${logMsg}`);
         
         // Log to file
@@ -2465,7 +2486,13 @@ Use the attached images as strict visual references.
                           }
                       }
 
-                      const review = await this.reviewGeneratedImage(fullPath, reviewRefs, request.minScore || 8, contextForReview);
+                      const review = await this.reviewGeneratedImage(fullPath, reviewRefs, {
+                        minScore: request.minScore || 8,
+                        minLikeness: request.minLikeness,
+                        minStory: request.minStory,
+                        minContinuity: request.minContinuity,
+                        storyContext: contextForReview
+                      });
                       
                       if (review.pass) {
                           generatedFiles.push(fullPath);
