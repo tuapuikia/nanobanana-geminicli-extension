@@ -2255,10 +2255,11 @@ export class ImageGenerator {
         const fullExpectedPath = path.join(outputPath, expectedFilename);
 
         // Only skip if NOT explicitly requested via --page
-        if (!request.page && fs.existsSync(fullExpectedPath)) {
-            console.error(`DEBUG - File already exists: ${fullExpectedPath}. Skipping generation (Resume Mode).`);
-            previousPagePath = fullExpectedPath;
-            generatedFiles.push(fullExpectedPath);
+        const existingPage = FileHandler.findLatestFile(baseName);
+        if (!request.page && existingPage) {
+            console.error(`DEBUG - File already exists: ${existingPage}. Skipping generation (Resume Mode).`);
+            previousPagePath = existingPage;
+            generatedFiles.push(existingPage);
             continue;
         }
 
