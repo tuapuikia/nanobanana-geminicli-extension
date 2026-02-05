@@ -692,7 +692,7 @@ export class ImageGenerator {
         }
 
         const response = await this.ai.models.generateContent({
-            model: 'gemini-2.0-flash', 
+            model: this.modelName, 
             config: {
                 responseModalities: ['TEXT'],
                 responseMimeType: 'application/json',
@@ -2476,15 +2476,27 @@ Use the attached images as strict visual references.
                           await fs.promises.rename(fullPath, failedPath);
                           console.error(`DEBUG - Renamed failed image to: ${failedFilename}`);
                           
+                          // Dynamic Correction Logic
+                          const reasonLower = review.reason.toLowerCase();
+                          let specificFix = "";
+
+                          if (reasonLower.includes('face') || reasonLower.includes('facial') || reasonLower.includes('eyes') || reasonLower.includes('likeness') || reasonLower.includes('look like') || reasonLower.includes('older') || reasonLower.includes('younger')) {
+                              specificFix += `\n- [FACE IDENTITY FIX]: The previous face was WRONG. You must COPY the facial features from the Reference Image labeled with the character's name. MATCH THE EYE SHAPE AND JAWLINE EXACTLY. Do not stylize into a generic face.`;
+                          }
+                          if (reasonLower.includes('hair') || reasonLower.includes('hairstyle')) {
+                              specificFix += `\n- [HAIR FIX]: The hairstyle was WRONG. Look at the Reference Image and copy the hair volume, bangs, and parting EXACTLY.`;
+                          }
+                          if (reasonLower.includes('style') || reasonLower.includes('rendering')) {
+                              specificFix += `\n- [STYLE FIX]: The art style was inconsistent. Ensure line weight and shading match the 'Previous Page Reference'.`;
+                          }
+
                           // Set correction instruction for next attempt
                           correctionInstruction = `\n\n[CRITICAL CORRECTION REQUIRED]\nThe previous generation was REJECTED (Score: ${review.score}/10).
 **FAILURE REASON**: ${review.reason}
 **INSTRUCTION**: You MUST fix the specific issue identified above.
-- If the face was wrong, strictly follow the facial features in the attached reference.
-- If the hair was wrong, fix the hairstyle to match the reference exactly.
-- If the costume was wrong, revert to the base design.
+${specificFix}
 - If the environment was wrong, align with the "Far View" anchor.
-Do not repeat the same mistake.`;
+- DO NOT IGNORE THIS. You will fail again if you do not correct these specific details.`;
 
                           if (attempt === maxRetries) {
                               return {
