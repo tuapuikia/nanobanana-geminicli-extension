@@ -2264,6 +2264,10 @@ export class ImageGenerator {
 \n[INSTRUCTION]
 Use the attached images as strict visual references.
 1. **Characters**: Maintain specific appearance (hairstyle, clothing, features) consistently.
+   - **ALWAYS REFER TO THE "GLOBAL CONTEXT" (Story File)** for character descriptions and details. The text in the story file is the source of truth for their appearance.
+   - If a character appears who was NOT in the "Previous Page Reference", you MUST check the attached "Global References".
+   - **DO NOT GENERATE RANDOM CHARACTERS**. If a character name matches a reference image, use that reference strictly.
+   - If a character's design was established in a previous page (even if not the immediately preceding one), you must infer their consistent look from the story context provided.
 2. **Environments**: The attached "Far View" image is your STRICT VISUAL ANCHOR. Use it to establish the room's layout, furniture placement, and atmosphere. Maintain this location's design exactly.
 3. **Continuity**: If a "Previous Page" reference is attached, you MUST ensure seamless continuity. The placement of objects and characters must logically follow the previous panel. Do not teleport furniture.
 4. **Text**: Do NOT render the page title ("${page.header.replace(/^[#\s]+/, '')}") as text in the image. You MAY render narrative captions if they are explicitly part of the panel description (e.g. "Caption: ..."), but never the page header itself.`;
