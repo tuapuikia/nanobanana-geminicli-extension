@@ -669,7 +669,7 @@ export class ImageGenerator {
         - If the visual style (shading/art style) clashes with the "Previous Page Reference", the continuity_score MUST be below 80%.
         - [STRICT] FACIAL IDENTITY: Compare the eyes, nose, and jawline. If it looks like a different person from the Character Reference, the likeness_score MUST be below 60%.
         - [STRICT] HAIR: The hairstyle (bangs, length, volume) must match the Main Reference exactly. If the hair is different, the likeness_score MUST be below 60%.
-        - [STRICT] CLOTHING: The costume DESIGN must be consistent with the reference. Exceptions are allowed ONLY for "Battle Damage" (tearing, dirt, broken armor) if implied by the story. However, if the BASE DESIGN changes, the continuity_score MUST be below 60%.
+        - [STRICT] CLOTHING: The costume DESIGN must be consistent with the reference UNLESS the Story Description or Global Context explicitly describes a different outfit (e.g., "wearing a suit" instead of the reference's "hoodie"). If the story implies a change, the new outfit is the correct one. Otherwise, if the BASE DESIGN changes without reason, the continuity_score MUST be below 60%.
         - If the image contradicts the Story Description (e.g. "fat" in text but "slim" in image), the story_score MUST be below 50%.
         
         STRICTLY enforce color and identity matches. Do not allow "style" to excuse facial or color drift.
@@ -2270,13 +2270,16 @@ export class ImageGenerator {
 \n[INSTRUCTION]
 Use the attached images as strict visual references.
 1. **Characters**: **STRICTLY COPY** the facial features and hairstyle from the attached reference images.
-   - The attached reference images are the **SUPREME AUTHORITY** and **GROUND TRUTH** for the character's appearance. You must generate the **SAME PERSON**.
+   - The attached reference images are the **SUPREME AUTHORITY** and **GROUND TRUTH** for the character's **FACE AND HAIR**. You must generate the **SAME PERSON**.
    - **FACE CONSISTENCY IS MANDATORY**: If the character's face in the "Previous Page Reference" differs even slightly from the "Character Sheet", you MUST ignore the previous page and follow the "Character Sheet" exactly.
+   - **COSTUME & CLOTHING**: 
+     - IF the text in the "GLOBAL CONTEXT" (character description) or "CURRENT PAGE" describes a specific outfit (e.g., 'wearing a tuxedo' or 'battle armor'), the **TEXT OVERRIDES THE IMAGE**. Use the text for the clothing, and the reference image only for the face/hair likeness.
+     - IF NO specific outfit is mentioned in the text, you MUST follow the clothing shown in the Character Sheet/Reference Image exactly.
    - **DO NOT** create a generic face. **DO NOT** hallucinate new features. Look at the "Reference Image" labeled with the character's name and **COPY IT** pixel-for-pixel where possible.
    - **ALWAYS REFER TO THE "GLOBAL CONTEXT" (Story File)** for character descriptions and details.
    - If a character appears who was NOT in the "Previous Page Reference", you MUST check the attached "Global References".
    - **DO NOT GENERATE RANDOM CHARACTERS**. If a character name matches a reference image, use that reference strictly.
-   - If a character's design was established in a previous page, you must infer their consistent look from the story context provided, but the Character Sheet always overrides everything.
+   - If a character's design was established in a previous page, you must infer their consistent look from the story context provided, but the Character Sheet always overrides everything regarding physical identity.
 2. **Environments**: The attached "Far View" image is your STRICT VISUAL ANCHOR. Use it to establish the room's layout, furniture placement, and atmosphere. Maintain this location's design exactly.
 3. **Continuity**: If a "Previous Page" reference is attached, you MUST ensure seamless continuity. The placement of objects and characters must logically follow the previous panel. Do not teleport furniture.
 4. **Text**: Do NOT render the page title ("${page.header.replace(/^[#\s]+/, '')}") as text in the image. You MAY render narrative captions if they are explicitly part of the panel description (e.g. "Caption: ..."), but never the page header itself.`;
