@@ -649,33 +649,39 @@ export class ImageGenerator {
         STORY DESCRIPTION / CONTEXT:
         "${storyContext || 'No specific story text provided.'}"
 
-        EVALUATION CRITERIA (Weighted):
-        1. [CRITICAL] Continuity (40%): Does the overall visual style (line weight, shading, lighting) match the "Previous Page Reference"? IF the character is also visible in the Previous Page, do they match?
-        2. [CRITICAL] Character Face & Hair (30%): Does the character look EXACTLY like the main Character Reference? Check eye shape, hair style/bangs, and facial structure.
-        3. [CRITICAL] Story Accuracy (20%): Does the image match the provided Story Description (actions, emotions, specific items)?
-        4. [IMPORTANT] Environment & Layout (10%): Does the background match the "Far View" environment reference?
+        EVALUATION CRITERIA (Scored out of 100% each):
+        1. [CRITICAL] Likeness & Identity (100% max): Does the character look EXACTLY like the main Character Reference sheet? Check eye shape, hair style/bangs, and facial structure. Identity must be 100% consistent with the Ground Truth Character Sheet.
+        2. [CRITICAL] Continuity (100% max): Does the overall visual style (line weight, shading, lighting) match the "Previous Page Reference"?
+        3. [IMPORTANT] Story Accuracy (100% max): Does the image match the provided Story Description (actions, emotions, specific items)?
+
+        TOTAL POSSIBLE SCORE: 300%.
+        10/10 quality in all categories equals 300%.
 
         SCORING RUBRIC (Be Extremely Strict):
-        - 10: Perfect match. Identical face, hair, and style.
-        - 9: Excellent likeness. Only pixel-level differences.
-        - 7-8: Recognizable as the same person, but minor details off (e.g. slightly different hair messiness). FACE MUST MATCH.
-        - 5-6: Looks like a sibling or cosplayer. FACE STRUCTURE IS DIFFERENT.
-        - 1-4: Completely wrong person, wrong gender, or unrecognizably different.
+        - 100%: Perfect match. Identical face, hair, colors, and style.
+        - 90%: Excellent likeness. Only pixel-level differences.
+        - 70-80%: Recognizable as the same person, but minor details off (e.g. slightly different hair messiness). FACE MUST MATCH.
+        - 50-60%: Looks like a sibling or cosplayer. FACE STRUCTURE IS DIFFERENT.
+        - 10-40%: Completely wrong person, wrong gender, or unrecognizably different.
 
         CRITICAL PENALTIES:
-        - If the visual style (shading/art style) clashes with the "Previous Page Reference", the score MUST be below 8.
-        - [STRICT] FACIAL IDENTITY: Compare the eyes, nose, and jawline. If it looks like a different person, the score MUST be below 6.
-        - [STRICT] HAIR: The hairstyle (bangs, length, volume) must match the Main Reference exactly. If the hair is different, the score MUST be below 6.
-        - [STRICT] CLOTHING: The costume DESIGN must be consistent with the reference. Exceptions are allowed ONLY for "Battle Damage" (tearing, dirt, broken armor) if implied by the story. However, if the BASE DESIGN changes (e.g. short sleeves become long sleeves without damage, or different collar type), the score MUST be below 6.
-        - If the image contradicts the Story Description (e.g. "fat" in text but "slim" in image), the score MUST be below 5.
+        - [STRICT] COLOR CONSISTENCY: Compare the hair, eye, and costume colors. If the colors deviate from the Character Reference sheet, the likeness_score MUST be below 60%.
+        - If the visual style (shading/art style) clashes with the "Previous Page Reference", the continuity_score MUST be below 80%.
+        - [STRICT] FACIAL IDENTITY: Compare the eyes, nose, and jawline. If it looks like a different person from the Character Reference, the likeness_score MUST be below 60%.
+        - [STRICT] HAIR: The hairstyle (bangs, length, volume) must match the Main Reference exactly. If the hair is different, the likeness_score MUST be below 60%.
+        - [STRICT] CLOTHING: The costume DESIGN must be consistent with the reference. Exceptions are allowed ONLY for "Battle Damage" (tearing, dirt, broken armor) if implied by the story. However, if the BASE DESIGN changes, the continuity_score MUST be below 60%.
+        - If the image contradicts the Story Description (e.g. "fat" in text but "slim" in image), the story_score MUST be below 50%.
         
-        Ignore style differences (e.g. B&W vs Color) unless it alters physical features.
+        STRICTLY enforce color and identity matches. Do not allow "style" to excuse facial or color drift.
         
         Output strictly in JSON format:
         {
-            "score": number, // 1-10. Be strict.
+            "likeness_score": number, // 0-100
+            "continuity_score": number, // 0-100
+            "story_score": number, // 0-100
+            "total_score": number, // 0-300
             "reason": "string", // Specific feedback on what is wrong.
-            "pass": boolean // derived from score.
+            "pass": boolean // true if total_score >= 250
         }`;
 
         const parts: any[] = [{ text: prompt }];
@@ -708,10 +714,10 @@ export class ImageGenerator {
 
         const result = JSON.parse(responseText);
         
-        // Enforce logic: Trust the score, but override the boolean based on strict math.
-        const calculatedPass = result.score >= minScore;
+        // Enforce logic: Total score < 250 is a failure.
+        const calculatedPass = result.total_score >= 250;
         
-        const logMsg = `[Auto-Review] Model: ${this.modelName}. Score: ${result.score}/10 (Min: ${minScore}). Pass: ${calculatedPass}. Reason: ${result.reason}`;
+        const logMsg = `[Auto-Review] Model: ${this.modelName}. Total: ${result.total_score}/300% (Likeness: ${result.likeness_score}%, Continuity: ${result.continuity_score}%, Story: ${result.story_score}%). Threshold: 250%. Pass: ${calculatedPass}. Reason: ${result.reason}`;
         console.error(`DEBUG - ${logMsg}`);
         
         // Log to file
@@ -726,7 +732,7 @@ export class ImageGenerator {
 
         return {
             pass: calculatedPass,
-            score: result.score,
+            score: result.total_score,
             reason: result.reason
         };
 
@@ -2264,18 +2270,19 @@ export class ImageGenerator {
 \n[INSTRUCTION]
 Use the attached images as strict visual references.
 1. **Characters**: **STRICTLY COPY** the facial features and hairstyle from the attached reference images.
-   - The attached reference images are the **GROUND TRUTH** for the character's appearance. You must generate the **SAME PERSON**.
-   - **DO NOT** create a generic face. **DO NOT** hallucinate new features. Look at the "Reference Image" labeled with the character's name and **COPY IT**.
+   - The attached reference images are the **SUPREME AUTHORITY** and **GROUND TRUTH** for the character's appearance. You must generate the **SAME PERSON**.
+   - **FACE CONSISTENCY IS MANDATORY**: If the character's face in the "Previous Page Reference" differs even slightly from the "Character Sheet", you MUST ignore the previous page and follow the "Character Sheet" exactly.
+   - **DO NOT** create a generic face. **DO NOT** hallucinate new features. Look at the "Reference Image" labeled with the character's name and **COPY IT** pixel-for-pixel where possible.
    - **ALWAYS REFER TO THE "GLOBAL CONTEXT" (Story File)** for character descriptions and details.
    - If a character appears who was NOT in the "Previous Page Reference", you MUST check the attached "Global References".
    - **DO NOT GENERATE RANDOM CHARACTERS**. If a character name matches a reference image, use that reference strictly.
-   - If a character's design was established in a previous page (even if not the immediately preceding one), you must infer their consistent look from the story context provided.
+   - If a character's design was established in a previous page, you must infer their consistent look from the story context provided, but the Character Sheet always overrides everything.
 2. **Environments**: The attached "Far View" image is your STRICT VISUAL ANCHOR. Use it to establish the room's layout, furniture placement, and atmosphere. Maintain this location's design exactly.
 3. **Continuity**: If a "Previous Page" reference is attached, you MUST ensure seamless continuity. The placement of objects and characters must logically follow the previous panel. Do not teleport furniture.
 4. **Text**: Do NOT render the page title ("${page.header.replace(/^[#\s]+/, '')}") as text in the image. You MAY render narrative captions if they are explicitly part of the panel description (e.g. "Caption: ..."), but never the page header itself.`;
         
         if (request.color) {
-            fullPrompt += "\n\n[IMPORTANT STYLE OVERRIDE]\nGENERATE THIS PAGE IN FULL COLOR. IGNORE ANY PREVIOUS 'BLACK AND WHITE' INSTRUCTIONS.";
+            fullPrompt += "\n\n[STRICT COLOR MANDATE]\nGENERATE THIS PAGE IN FULL COLOR. You MUST match the EXACT color palette (hair, skin tone, eyes, clothing) from the attached Reference Images. Do not shift hues or saturation. IGNORE ANY PREVIOUS 'BLACK AND WHITE' INSTRUCTIONS.";
         }
 
         // Prepare Message Parts
