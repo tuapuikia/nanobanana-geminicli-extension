@@ -711,7 +711,7 @@ export class ImageGenerator {
         // Enforce logic: Trust the score, but override the boolean based on strict math.
         const calculatedPass = result.score >= minScore;
         
-        const logMsg = `[Auto-Review] Score: ${result.score}/10 (Min: ${minScore}). Pass: ${calculatedPass}. Reason: ${result.reason}`;
+        const logMsg = `[Auto-Review] Model: ${this.modelName}. Score: ${result.score}/10 (Min: ${minScore}). Pass: ${calculatedPass}. Reason: ${result.reason}`;
         console.error(`DEBUG - ${logMsg}`);
         
         // Log to file
