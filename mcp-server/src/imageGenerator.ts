@@ -656,17 +656,17 @@ export class ImageGenerator {
         4. [IMPORTANT] Environment & Layout (10%): Does the background match the "Far View" environment reference?
 
         SCORING RUBRIC (Be Extremely Strict):
-        - 10: Perfect match. No errors.
-        - 9: Minor artistic interpretation, but all features (hair, eyes, furniture) are correct.
-        - 7-8: Good likeness, but minor errors (e.g. wrong eye color, slightly wrong hair length, wrong furniture color).
-        - 5-6: Recognizable but significant errors (e.g. wrong hairstyle/bangs, wrong outfit, furniture in wrong place).
-        - 1-4: Completely wrong character, environment, OR contradicts the story description (e.g. fat vs slim, wrong action).
+        - 10: Perfect match. Identical face, hair, and style.
+        - 9: Excellent likeness. Only pixel-level differences.
+        - 7-8: Recognizable as the same person, but minor details off (e.g. slightly different hair messiness). FACE MUST MATCH.
+        - 5-6: Looks like a sibling or cosplayer. FACE STRUCTURE IS DIFFERENT.
+        - 1-4: Completely wrong person, wrong gender, or unrecognizably different.
 
         CRITICAL PENALTIES:
         - If the visual style (shading/art style) clashes with the "Previous Page Reference", the score MUST be below 8.
-        - [STRICT] If the character is visible in the "Previous Page Reference", compare their FACIAL FEATURES (eyes, nose, jawline) directly. If the face looks like a different person (even with a different expression), the score MUST be below 5. Expression changes are allowed, but the underlying facial structure must be identical.
-        - [STRICT] HAIR: The hairstyle (bangs, length, volume) must match the Main Reference exactly. If the hair is different, the score MUST be below 5.
-        - [STRICT] CLOTHING: The costume DESIGN must be consistent with the reference. Exceptions are allowed ONLY for "Battle Damage" (tearing, dirt, broken armor) if implied by the story. However, if the BASE DESIGN changes (e.g. short sleeves become long sleeves without damage, or different collar type), the score MUST be below 5.
+        - [STRICT] FACIAL IDENTITY: Compare the eyes, nose, and jawline. If it looks like a different person, the score MUST be below 6.
+        - [STRICT] HAIR: The hairstyle (bangs, length, volume) must match the Main Reference exactly. If the hair is different, the score MUST be below 6.
+        - [STRICT] CLOTHING: The costume DESIGN must be consistent with the reference. Exceptions are allowed ONLY for "Battle Damage" (tearing, dirt, broken armor) if implied by the story. However, if the BASE DESIGN changes (e.g. short sleeves become long sleeves without damage, or different collar type), the score MUST be below 6.
         - If the image contradicts the Story Description (e.g. "fat" in text but "slim" in image), the score MUST be below 5.
         
         Ignore style differences (e.g. B&W vs Color) unless it alters physical features.
@@ -2263,8 +2263,10 @@ export class ImageGenerator {
         fullPrompt += `
 \n[INSTRUCTION]
 Use the attached images as strict visual references.
-1. **Characters**: Maintain specific appearance (hairstyle, clothing, features) consistently.
-   - **ALWAYS REFER TO THE "GLOBAL CONTEXT" (Story File)** for character descriptions and details. The text in the story file is the source of truth for their appearance.
+1. **Characters**: **STRICTLY COPY** the facial features and hairstyle from the attached reference images.
+   - The attached reference images are the **GROUND TRUTH** for the character's appearance. You must generate the **SAME PERSON**.
+   - **DO NOT** create a generic face. **DO NOT** hallucinate new features. Look at the "Reference Image" labeled with the character's name and **COPY IT**.
+   - **ALWAYS REFER TO THE "GLOBAL CONTEXT" (Story File)** for character descriptions and details.
    - If a character appears who was NOT in the "Previous Page Reference", you MUST check the attached "Global References".
    - **DO NOT GENERATE RANDOM CHARACTERS**. If a character name matches a reference image, use that reference strictly.
    - If a character's design was established in a previous page (even if not the immediately preceding one), you must infer their consistent look from the story context provided.
