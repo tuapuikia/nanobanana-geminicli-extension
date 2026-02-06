@@ -746,7 +746,24 @@ export class ImageGenerator {
             throw new Error("No response from review model");
         }
 
-        const result = JSON.parse(responseText);
+        // Clean up Markdown code blocks if present
+        const cleanedText = responseText.replace(/```json\n?|\n?```/g, '').trim();
+        let result;
+        try {
+            result = JSON.parse(cleanedText);
+        } catch (parseError) {
+            console.error(`DEBUG - JSON Parse Error: ${parseError}. Raw Text: ${responseText}`);
+            return { pass: true, score: 0, reason: "Review failed to parse JSON response." };
+        }
+
+        // Ensure default values if fields are missing
+        result.total_score = result.total_score ?? 0;
+        result.likeness_score = result.likeness_score ?? 0;
+        result.story_score = result.story_score ?? 0;
+        result.continuity_score = result.continuity_score ?? 0;
+        result.no_bubbles_score = result.no_bubbles_score ?? 0;
+        result.lettering_score = result.lettering_score ?? 0;
+        result.reason = result.reason || "No reason provided.";
         
         // Dynamic threshold based on minScore (1-10). Default 8 -> 320/400.
         const scoreThreshold = minScore * 40;
