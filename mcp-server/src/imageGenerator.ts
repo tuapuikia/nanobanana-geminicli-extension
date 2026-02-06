@@ -2603,12 +2603,17 @@ export class ImageGenerator {
         if (failureData.reasons.length > 0) {
             // Filter out obsolete color warnings if we are in Two-Phase mode (where Phase 1 can be B&W)
             const activeReasons = failureData.reasons.filter(r => {
-                if (request.twoPhase && (
-                    r.includes("TARGET FORMAT: FULL COLOR") || 
-                    r.includes("lack of color") || 
-                    r.includes("black and white")
-                )) {
-                    return false; // Ignore old color failures for Phase 1
+                if (request.twoPhase) {
+                    const rLower = r.toLowerCase();
+                    if (
+                        rLower.includes("target format: full color") || 
+                        rLower.includes("lack of color") || 
+                        rLower.includes("black and white") ||
+                        rLower.includes("lettering") || 
+                        rLower.includes("typo")
+                    ) {
+                        return false; // Ignore old color/text failures for Phase 1
+                    }
                 }
                 return true;
             });
