@@ -747,8 +747,8 @@ export class ImageGenerator {
 
         // Specific thresholds
         const thresholdLikeness = minLikeness ? minLikeness * 10 : 70; // Default 70% safety
-        const thresholdStory = minStory ? minStory * 10 : 0;
-        const thresholdContinuity = minContinuity ? minContinuity * 10 : 0;
+        const thresholdStory = minStory ? minStory * 10 : 70; // Default 70% (Required for strict Panel Layout check)
+        const thresholdContinuity = minContinuity ? minContinuity * 10 : 70; // Default 70% (Required for strict Design/Consistency)
         const thresholdLettering = options.minLettering ? options.minLettering * 10 : 90;
 
         // Enforce logic: Total score < threshold is a failure.
@@ -795,7 +795,8 @@ export class ImageGenerator {
     storyContent: string,
     pageHeader: string,
     references: { data: string; mimeType: string; sourcePath: string }[],
-    isColor: boolean
+    isColor: boolean,
+    artPrompt?: string
   ): Promise<string> {
     console.error(`DEBUG - Phase 2: Adding text ${isColor ? 'and color ' : ''}to ${pageHeader} using ${this.textModel}...`);
     
@@ -826,6 +827,8 @@ export class ImageGenerator {
         STORY SCRIPT FOR ${pageHeader}:
         "${storyContent}"
         ${checklist}
+        
+        ${artPrompt ? `\n[VISUAL CONTEXT FROM ART PHASE]\nThe attached "Generated Image" was created with this description. Use it to understand the intended colors, lighting, and atmosphere:\n"${artPrompt}"` : ''}
         
         INSTRUCTIONS:
         1. **Create Dialogue Bubbles**: Analyze the script and the panels in the attached art. Create speech bubbles and caption boxes that fit the dialogue and composition.
@@ -2403,8 +2406,10 @@ export class ImageGenerator {
         }
 
         // Check Phase 1 Memory
+        let phase1Prompt: string | undefined = undefined;
         if (request.twoPhase && !request.page && memory.phase1) {
              existingArtPath = memory.phase1;
+             phase1Prompt = memory.phase1Prompt;
              const msg = `✅ Memory: Found PASSED Phase 1 file: ${memory.phase1}. Resuming from Phase 2.`;
              console.error(`DEBUG - ${msg}`);
              await this.logToDisk(msg);
@@ -2790,11 +2795,15 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                                             console.error(msg);
                                             await this.logToDisk(msg);
                                             
-                                                              // Update Memory
-                                                              await MemoryHandler.updateMemory(memoryPath, page.header, 1, 'PASSED', { filePath: fullPath });
-                                                            }
+                                                                                // Update Memory
                                             
-                                                            let finalPathForReview = fullPath;                      // Phase 2: Add Text & Color
+                                                                                await MemoryHandler.updateMemory(memoryPath, page.header, 1, 'PASSED', { filePath: fullPath, prompt: originalPromptText });
+                                            
+                                                                              }
+                                            
+                                                              
+                                            
+                                                                              let finalPathForReview = fullPath;                      // Phase 2: Add Text & Color
                       if (request.twoPhase) {
                           try {
                               // Collect all relevant references for Phase 2 (Colorization)
@@ -2814,7 +2823,8 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                                   page.content, 
                                   page.header,
                                   phase2Refs,
-                                  request.color || false
+                                  request.color || false,
+                                  phase1Prompt || originalPromptText
                               );
                           } catch (e) {
                               console.error(`DEBUG - Phase 2 failed, falling back to Phase Art image for review.`, e);

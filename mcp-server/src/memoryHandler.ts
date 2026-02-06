@@ -13,7 +13,7 @@ export class MemoryHandler {
     pageHeader: string,
     phase: number,
     status: 'PASSED' | 'FAILED',
-    data?: { filePath?: string; reason?: string; failedPath?: string },
+    data?: { filePath?: string; reason?: string; failedPath?: string; prompt?: string },
   ): Promise<void> {
     try {
       let content = '';
@@ -54,6 +54,29 @@ export class MemoryHandler {
         } else {
           blockContent = blockContent.trimEnd() + '\n' + newLine + '\n';
         }
+
+        // Save Prompt if provided (only for Phase 1 usually)
+        if (data?.prompt) {
+             const promptMarker = `- Phase ${phase} Prompt:`;
+             const promptFileName = `prompt_${pageHeader.replace(/[^a-z0-9]/gi, '_')}_p${phase}.txt`;
+             const promptPath = path.join(path.dirname(memoryPath), 'prompts', promptFileName);
+             
+             // Ensure prompts dir
+             const promptsDir = path.dirname(promptPath);
+             if (!fs.existsSync(promptsDir)) fs.mkdirSync(promptsDir, { recursive: true });
+             
+             await FileHandler.saveTextFile(promptPath, data.prompt);
+             
+             const promptLine = `${promptMarker} \`${promptFileName}\``;
+             const promptRegex = new RegExp(`^\\s*${promptMarker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*$`, 'm');
+             
+             if (promptRegex.test(blockContent)) {
+                 blockContent = blockContent.replace(promptRegex, promptLine);
+             } else {
+                 blockContent = blockContent.trimEnd() + '\n' + promptLine + '\n';
+             }
+        }
+
       } else {
         // FAILED
         let failLine = `- Phase ${phase} Attempt: FAILED. Reason: ${data?.reason}`;
@@ -126,7 +149,7 @@ export class MemoryHandler {
   static async checkMemory(
     memoryPath: string,
     pageHeader: string,
-  ): Promise<{ phase1?: string; phase2?: string }> {
+  ): Promise<{ phase1?: string; phase2?: string; phase1Prompt?: string }> {
     try {
       if (!fs.existsSync(memoryPath)) return {};
       const content = await FileHandler.readTextFile(memoryPath);
@@ -141,7 +164,7 @@ export class MemoryHandler {
       if (!match) return {};
 
       const blockContent = match[1];
-      const result: { phase1?: string; phase2?: string } = {};
+      const result: { phase1?: string; phase2?: string; phase1Prompt?: string } = {};
 
       // Extract Phase 1
       const p1Match = blockContent.match(/- Phase 1: `([^`]+)` \[PASSED\]/);
@@ -153,6 +176,15 @@ export class MemoryHandler {
       const p2Match = blockContent.match(/- Phase 2: `([^`]+)` \[PASSED\]/);
       if (p2Match && fs.existsSync(p2Match[1])) {
         result.phase2 = p2Match[1];
+      }
+      
+      // Extract Phase 1 Prompt
+      const promptMatch = blockContent.match(/- Phase 1 Prompt: `([^`]+)`/);
+      if (promptMatch) {
+          const promptPath = path.join(path.dirname(memoryPath), 'prompts', promptMatch[1]);
+          if (fs.existsSync(promptPath)) {
+              result.phase1Prompt = await FileHandler.readTextFile(promptPath);
+          }
       }
 
       return result;
