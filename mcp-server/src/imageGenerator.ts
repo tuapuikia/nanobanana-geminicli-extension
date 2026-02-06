@@ -2848,9 +2848,13 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                     await this.logToDisk(logMsg);
                 } catch (e) { console.error('DEBUG - Failed to save Phase 1 prompt:', e); }
 
+                // Select model: Phase 1 (Art) uses artModel (2.5), Single Phase uses modelName (User Defined Env or Default Text Model)
+                const activeModel = request.twoPhase ? this.artModel : this.modelName;
+                console.error(`DEBUG - Active Model selected: ${activeModel} (TwoPhase: ${request.twoPhase})`);
+
                 try {
                     const response = await this.ai.models.generateContent({
-                      model: this.artModel,
+                      model: activeModel,
                       contents: [{ role: 'user', parts: parts }],
                       config: {
                         responseModalities: (request.twoPhase ? false : request.includeText) ? ['IMAGE', 'TEXT'] : ['IMAGE'],
