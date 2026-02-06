@@ -2791,19 +2791,28 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                           
                           // Delete failed files
                           try {
-                              await fs.promises.unlink(finalPathForReview);
-                              console.error(`DEBUG - Deleted failed Final image: ${finalPathForReview}`);
                               if (finalPathForReview !== fullPath) {
-                                  await fs.promises.unlink(fullPath);
-                                  console.error(`DEBUG - Deleted failed Art image: ${fullPath}`);
+                                  // Always delete the failed Phase 2 file
+                                  await fs.promises.unlink(finalPathForReview);
+                                  console.error(`DEBUG - Deleted failed Final image: ${finalPathForReview}`);
+                              }
+                              
+                              if (request.twoPhase) {
+                                  // Preserve Phase 1 Art for retry
+                                  console.error(`DEBUG - Preserving Phase 1 Art for retry: ${fullPath}`);
+                                  existingArtPath = fullPath;
+                              } else {
+                                  // Single phase or fallback - delete if failed
+                                  if (fullPath !== finalPathForReview || !request.twoPhase) {
+                                       await fs.promises.unlink(fullPath);
+                                       console.error(`DEBUG - Deleted failed image: ${fullPath}`);
+                                  }
+                                  existingArtPath = null;
                               }
                           } catch (e) {
                               console.error(`DEBUG - Failed to clean up failed images:`, e);
                           }
                           
-                          // Clear existingArtPath to ensure next attempt actually generates
-                          existingArtPath = null;
-
                           // Dynamic Correction Logic
                           const reasonLower = review.reason.toLowerCase();
                           let specificFix = "";
