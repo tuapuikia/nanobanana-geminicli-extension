@@ -38,6 +38,7 @@ export interface ImageGenerationRequest {
   minLikeness?: number;
   minStory?: number;
   minContinuity?: number;
+  minLettering?: number;
   retryCount?: number;
   twoPhase?: boolean;
 }
@@ -117,6 +118,7 @@ export interface MangaPromptArgs {
   min_likeness?: number;
   min_story?: number;
   min_continuity?: number;
+  min_lettering?: number;
   retry_count?: number;
   two_phase?: boolean;
 }

@@ -659,6 +659,7 @@ class NanoBananaServer {
               minLikeness: args?.min_likeness as number,
               minStory: args?.min_story as number,
               minContinuity: args?.min_continuity as number,
+              minLettering: args?.min_lettering as number,
               retryCount: args?.retry_count as number,
               twoPhase: args?.two_phase !== undefined ? (args?.two_phase as boolean) : true,
             };

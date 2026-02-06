@@ -22,6 +22,8 @@ const execAsync = promisify(exec);
 export class ImageGenerator {
   private ai: GoogleGenAI;
   private modelName: string;
+  private artModel: string;
+  private textModel: string;
   private static readonly DEFAULT_MODEL = 'gemini-2.5-flash-image';
   private static readonly DEFAULT_TEXT_MODEL = 'gemini-3-pro-image-preview';
 
@@ -29,9 +31,11 @@ export class ImageGenerator {
     this.ai = new GoogleGenAI({
       apiKey: authConfig.apiKey,
     });
-    this.modelName =
-      process.env.NANOBANANA_MODEL || ImageGenerator.DEFAULT_MODEL;
-    console.error(`DEBUG - Using image model: ${this.modelName}`);
+    this.artModel = process.env.NANOBANANA_ART_MODEL || ImageGenerator.DEFAULT_MODEL;
+    this.textModel = process.env.NANOBANANA_TEXT_MODEL || ImageGenerator.DEFAULT_TEXT_MODEL;
+    this.modelName = process.env.NANOBANANA_MODEL || this.artModel;
+    
+    console.error(`DEBUG - Models initialized: Art=${this.artModel}, Text=${this.textModel}, Default=${this.modelName}`);
   }
 
   private getSafetySettings(): any[] {
@@ -630,6 +634,7 @@ export class ImageGenerator {
         minLikeness?: number;
         minStory?: number;
         minContinuity?: number;
+        minLettering?: number;
         storyContext?: string;
     } = { minScore: 8 }
   ): Promise<{ pass: boolean; score: number; reason: string }> {
@@ -661,36 +666,39 @@ export class ImageGenerator {
         EVALUATION CRITERIA (Scored out of 100% each):
         1. [CRITICAL] Likeness & Identity (100% max): Does the character look EXACTLY like the main Character Reference sheet? Check eye shape, hair style/bangs, and facial structure. Identity must be 100% consistent with the Ground Truth Character Sheet.
         2. [CRITICAL] Continuity (100% max): Does the overall visual style (line weight, shading, lighting) match the "Previous Page Reference"?
-        3. [IMPORTANT] Story Accuracy (100% max): Does the image match the provided Story Description (actions, emotions, specific items)?
+        3. [CRITICAL] Lettering & Text (100% max): Are ALL speech bubbles and caption boxes filled with the correct text from the Story Description? Are there any empty bubbles? Is the text legible and well-centered?
+        4. [IMPORTANT] Story Accuracy (100% max): Does the image match the provided Story Description (actions, emotions, specific items)?
 
-        TOTAL POSSIBLE SCORE: 300%.
-        10/10 quality in all categories equals 300%.
+        TOTAL POSSIBLE SCORE: 400%.
+        10/10 quality in all categories equals 400%.
 
         SCORING RUBRIC (Be Extremely Strict):
-        - 100%: Perfect match. Identical face, hair, colors, and style.
-        - 90%: Excellent likeness. Only pixel-level differences.
-        - 70-80%: Recognizable as the same person, but minor details off (e.g. slightly different hair messiness). FACE MUST MATCH.
-        - 50-60%: Looks like a sibling or cosplayer. FACE STRUCTURE IS DIFFERENT.
-        - 10-40%: Completely wrong person, wrong gender, or unrecognizably different.
+        - 100%: Perfect match. Identical face, hair, colors, and style. All text present and beautiful.
+        - 90%: Excellent likeness and lettering. Only pixel-level differences.
+        - 70-80%: Recognizable as the same person, or text has minor spacing issues. FACE MUST MATCH.
+        - 50-60%: Looks like a different person OR at least one speech bubble is empty/gibberish.
+        - 10-40%: Completely wrong person, or text is missing entirely.
 
         CRITICAL PENALTIES:
+        - [STRICT] EMPTY BUBBLES: If ANY speech bubble or caption box is empty or contains placeholder text, the lettering_score MUST be below 40%.
         - [STRICT] COLOR CONSISTENCY: Compare the hair, eye, and costume colors. If the colors deviate from the Character Reference sheet, the likeness_score MUST be below 60%.
         - If the visual style (shading/art style) clashes with the "Previous Page Reference", the continuity_score MUST be below 80%.
         - [STRICT] FACIAL IDENTITY: Compare the eyes, nose, and jawline. If it looks like a different person from the Character Reference, the likeness_score MUST be below 60%.
         - [STRICT] HAIR: The hairstyle (bangs, length, volume) must match the Main Reference exactly. If the hair is different, the likeness_score MUST be below 60%.
-        - [STRICT] CLOTHING: The costume DESIGN must be consistent with the reference UNLESS the Story Description or Global Context explicitly describes a different outfit (e.g., "wearing a suit" instead of the reference's "hoodie"). If the story implies a change, the new outfit is the correct one. Otherwise, if the BASE DESIGN changes without reason, the continuity_score MUST be below 60%.
+        - [STRICT] CLOTHING: The costume DESIGN must be consistent with the reference UNLESS the Story Description or Global Context explicitly describes a different outfit. If the BASE DESIGN changes without reason, the continuity_score MUST be below 60%.
         - If the image contradicts the Story Description (e.g. "fat" in text but "slim" in image), the story_score MUST be below 50%.
         
-        STRICTLY enforce color and identity matches. Do not allow "style" to excuse facial or color drift.
+        STRICTLY enforce color, identity, and FULL TEXT completion. Do not allow "style" to excuse facial drift or empty bubbles.
         
         Output strictly in JSON format:
         {
             "likeness_score": number, // 0-100
             "continuity_score": number, // 0-100
+            "lettering_score": number, // 0-100
             "story_score": number, // 0-100
-            "total_score": number, // 0-300
+            "total_score": number, // 0-400
             "reason": "string", // Specific feedback on what is wrong.
-            "pass": boolean // true if total_score >= 250 AND likeness_score >= 70
+            "pass": boolean // true if total_score >= 340 AND likeness_score >= 70 AND lettering_score >= 90
         }`;
 
         const parts: any[] = [{ text: prompt }];
@@ -723,23 +731,24 @@ export class ImageGenerator {
 
         const result = JSON.parse(responseText);
         
-        // Dynamic threshold based on minScore (1-10). Default 8 -> 240/300.
-        const scoreThreshold = minScore * 30;
+        // Dynamic threshold based on minScore (1-10). Default 8 -> 320/400.
+        const scoreThreshold = minScore * 40;
 
         // Specific thresholds
         const thresholdLikeness = minLikeness ? minLikeness * 10 : 70; // Default 70% safety
         const thresholdStory = minStory ? minStory * 10 : 0;
         const thresholdContinuity = minContinuity ? minContinuity * 10 : 0;
+        const thresholdLettering = options.minLettering ? options.minLettering * 10 : 90;
 
         // Enforce logic: Total score < threshold is a failure.
-        // Also enforce minimum likeness score (70% or user defined)
         const calculatedPass = 
             result.total_score >= scoreThreshold && 
             result.likeness_score >= thresholdLikeness &&
             result.story_score >= thresholdStory &&
-            result.continuity_score >= thresholdContinuity;
+            result.continuity_score >= thresholdContinuity &&
+            result.lettering_score >= thresholdLettering;
         
-        const logMsg = `[Auto-Review] Model: ${this.modelName}. Total: ${result.total_score}/300% (Likeness: ${result.likeness_score}%, Continuity: ${result.continuity_score}%, Story: ${result.story_score}%). Threshold: ${scoreThreshold}% & Likeness >= ${thresholdLikeness}%. Pass: ${calculatedPass}. Reason: ${result.reason}`;
+        const logMsg = `[Auto-Review] Model: ${this.modelName}. Total: ${result.total_score}/400% (Likeness: ${result.likeness_score}%, Continuity: ${result.continuity_score}%, Story: ${result.story_score}%, Lettering: ${result.lettering_score}%). Threshold: ${scoreThreshold}% & Likeness >= ${thresholdLikeness}% & Lettering >= ${thresholdLettering}%. Pass: ${calculatedPass}. Reason: ${result.reason}`;
         console.error(`DEBUG - ${logMsg}`);
         
         // Log to file
@@ -769,7 +778,7 @@ export class ImageGenerator {
     storyContent: string,
     pageHeader: string
   ): Promise<string> {
-    console.error(`DEBUG - Phase 2: Adding text to ${pageHeader} using ${ImageGenerator.DEFAULT_TEXT_MODEL}...`);
+    console.error(`DEBUG - Phase 2: Adding text to ${pageHeader} using ${this.textModel}...`);
     
     try {
         const imageB64 = await FileHandler.readImageAsBase64(imagePath);
@@ -783,15 +792,19 @@ export class ImageGenerator {
         INSTRUCTIONS:
         1. Scan the attached manga page and identify EVERY empty speech bubble and caption box.
         2. You MUST place ALL dialogue lines and captions from the script into these bubbles/boxes. 
-        3. Do NOT leave any speech bubble empty if there is text provided in the script.
-        4. Match the font style, weight, and size to professional manga standards.
-        5. Ensure text is perfectly centered and legible within the bubbles. Use multiple lines if necessary to fit the shape.
-        6. CRITICAL: DO NOT modify the existing artwork, characters, or backgrounds. Your ONLY task is to overlay the text.
-        7. If there are more bubbles than text lines, leave the extra ones empty. If there is more text than bubbles, intelligently add the text as captions or create small new bubbles if absolutely necessary, but prioritize filling existing ones first.
-        8. Return the final image with all text rendered.`;
+        3. MANDATORY SEQUENTIAL MAPPING:
+           - In Manga (traditional), bubbles are read Right-to-Left, Top-to-Bottom.
+           - In Webtoon/Vertical format, bubbles are read Top-to-Bottom.
+           - Map the dialogue lines in the script to the bubbles on the page in this specific reading order.
+        4. NO EMPTY BUBBLES: If there is a white bubble on the page, it MUST contain text from the script. Leaving a bubble empty is a critical failure.
+        5. FONT & STYLE: Match professional manga lettering (e.g., CC Wild Words style). Ensure captions use square/rectangular boxes and dialogue uses oval bubbles.
+        6. LAYOUT: Ensure text is perfectly centered. If a line is long, break it into multiple lines to fill the bubble's center.
+        7. CRITICAL: DO NOT modify characters, backgrounds, or panel lines. ONLY overlay the text.
+        8. VERIFICATION: Before finishing, double-check that every single bubble you found in step 1 now contains text. 
+        9. Return the final high-quality image with ALL text rendered.`;
 
         const response = await this.ai.models.generateContent({
-            model: ImageGenerator.DEFAULT_TEXT_MODEL,
+            model: this.textModel,
             config: {
                 responseModalities: ['IMAGE'],
                 safetySettings: this.getSafetySettings(),
@@ -818,7 +831,7 @@ export class ImageGenerator {
                     const newPath = path.join(dir, newFileName);
                     await FileHandler.saveImageFromBase64(b64, dir, newFileName);
                     
-                    await this.logGeneration(ImageGenerator.DEFAULT_TEXT_MODEL, [newPath], `Phase 2 (Lettering) for ${pageHeader}`);
+                    await this.logGeneration(this.textModel, [newPath], `Phase 2 (Lettering) for ${pageHeader}`);
                     console.error(`DEBUG - Phase 2 SUCCESS: Saved final image to ${newPath}`);
                     return newPath;
                 }
@@ -2379,10 +2392,16 @@ Use the attached images as strict visual references.
         }
 
         if (request.twoPhase) {
+            const dialogueCount = (page.content.match(/^(?!\s*(!|#|\[|>))[^:\n]+:[^:\n]+$/gm) || []).length;
+            const captionCount = (page.content.match(/^Caption:/gim) || []).length;
+            
             fullPrompt += `
 \n[TWO-PHASE GENERATION: ART PHASE]
 IMPORTANT: This is the ART PHASE. You must generate the panels and art but LEAVE THE SPEECH BUBBLES AND DIALOG BOXES EMPTY. 
-- Ensure all speech bubbles and caption boxes are clearly rendered and empty.
+- SCRIPT ANALYSIS: The script for this page has approximately ${dialogueCount} dialogue lines and ${captionCount} captions.
+- BUBBLE PRECISION: ONLY create the number of speech bubbles and caption boxes required by the script. 
+- **DO NOT CREATE EXTRA BUBBLES**. AVOID cluttering the page with unused or decorative bubbles.
+- Ensure all speech bubbles and caption boxes are clearly rendered, large enough for text, and COMPLETELY EMPTY.
 - Do NOT add any text, letters, or gibberish inside the bubbles.
 - Focus entirely on character likeness, composition, and environment.`;
         }
@@ -2512,7 +2531,7 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but LEAVE
 
             try {
                 const response = await this.ai.models.generateContent({
-                  model: this.modelName,
+                  model: this.artModel,
                   contents: [{ role: 'user', parts: parts }],
                   config: {
                     responseModalities: request.includeText ? ['IMAGE', 'TEXT'] : ['IMAGE'],
@@ -2546,7 +2565,7 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but LEAVE
                         filename,
                       );
                       
-                      await this.logGeneration(this.modelName, [fullPath], `Phase 1 (Art) for ${page.header}`);
+                      await this.logGeneration(this.artModel, [fullPath], `Phase 1 (Art) for ${page.header}`);
                       
                       let finalPathForReview = fullPath;
 
@@ -2582,6 +2601,7 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but LEAVE
                         minLikeness: request.minLikeness,
                         minStory: request.minStory,
                         minContinuity: request.minContinuity,
+                        minLettering: request.minLettering,
                         storyContext: contextForReview
                       });
                       
