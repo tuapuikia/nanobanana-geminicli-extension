@@ -776,32 +776,54 @@ export class ImageGenerator {
   private async addTextToMangaPage(
     imagePath: string,
     storyContent: string,
-    pageHeader: string
+    pageHeader: string,
+    references: { data: string; mimeType: string; sourcePath: string }[],
+    isColor: boolean
   ): Promise<string> {
-    console.error(`DEBUG - Phase 2: Adding text to ${pageHeader} using ${this.textModel}...`);
+    console.error(`DEBUG - Phase 2: Adding text ${isColor ? 'and color ' : ''}to ${pageHeader} using ${this.textModel}...`);
     
     try {
         const imageB64 = await FileHandler.readImageAsBase64(imagePath);
         
-        const prompt = `You are a professional manga letterer. 
-        Task: Add ALL dialogue and captions from the provided story script onto the attached manga page.
+        let prompt = `You are a professional manga editor and artist. 
+        Task: Add dialogue bubbles and text from the provided story script onto the attached manga page art. 
+        ${isColor ? 'Also, COLORIZE the page using the provided reference images.' : ''}
         
         STORY SCRIPT FOR ${pageHeader}:
         "${storyContent}"
         
         INSTRUCTIONS:
-        1. Scan the attached manga page and identify EVERY empty speech bubble and caption box.
-        2. You MUST place ALL dialogue lines and captions from the script into these bubbles/boxes. 
-        3. MANDATORY SEQUENTIAL MAPPING:
-           - In Manga (traditional), bubbles are read Right-to-Left, Top-to-Bottom.
-           - In Webtoon/Vertical format, bubbles are read Top-to-Bottom.
-           - Map the dialogue lines in the script to the bubbles on the page in this specific reading order.
-        4. NO EMPTY BUBBLES: If there is a white bubble on the page, it MUST contain text from the script. Leaving a bubble empty is a critical failure.
-        5. FONT & STYLE: Match professional manga lettering (e.g., CC Wild Words style). Ensure captions use square/rectangular boxes and dialogue uses oval bubbles.
-        6. LAYOUT: Ensure text is perfectly centered. If a line is long, break it into multiple lines to fill the bubble's center.
-        7. CRITICAL: DO NOT modify characters, backgrounds, or panel lines. ONLY overlay the text.
-        8. VERIFICATION: Before finishing, double-check that every single bubble you found in step 1 now contains text. 
-        9. Return the final high-quality image with ALL text rendered.`;
+        1. **Create Dialogue Bubbles**: Analyze the script and the panels in the attached art. Create speech bubbles and caption boxes that fit the dialogue and composition.
+        2. **Sequential Mapping**: Map the dialogue lines in the script to the bubbles you create in reading order (Top-to-Bottom, and Right-to-Left if traditional manga panels are present).
+        3. **Lettering**: Render ALL dialogue and captions into the bubbles/boxes. Use professional manga lettering style. Ensure text is centered and legible.
+        4. **Verification**: EVERY line of dialogue and EVERY caption from the script MUST be present on the final page.`;
+
+        if (isColor) {
+            prompt += `
+        5. **Colorization**: The attached page is in Black and White. You MUST colorize it.
+           - Use the attached "Reference Image" portraits to match the EXACT hair, eye, skin, and costume colors for characters.
+           - Use the "Far View" environment reference for background colors.
+           - Ensure consistent color palettes across the entire page.`;
+        } else {
+            prompt += `
+        5. **Maintain Style**: The attached page art is in Black and White. Keep the final output in professional Black and White manga style (screentones, ink, etc.). Do NOT add any color.`;
+        }
+
+        prompt += `
+        6. **Art Integrity**: Maintain the original character likenesses and composition from the attached art. Do NOT redraw the panels, only overlay the bubbles, text, and color.
+        7. Return the final high-quality image.`;
+
+        const parts: any[] = [
+            { text: prompt },
+            { inlineData: { data: imageB64, mimeType: 'image/png' } }
+        ];
+
+        // Add References for Colorization/Context
+        for (const ref of references) {
+            const label = path.basename(ref.sourcePath, path.extname(ref.sourcePath)).replace(/_/g, ' ');
+            parts.push({ text: `Reference image for: "${label}"` });
+            parts.push({ inlineData: { data: ref.data, mimeType: ref.mimeType } });
+        }
 
         const response = await this.ai.models.generateContent({
             model: this.textModel,
@@ -811,10 +833,7 @@ export class ImageGenerator {
             } as any,
             contents: [{ 
                 role: 'user', 
-                parts: [
-                    { text: prompt },
-                    { inlineData: { data: imageB64, mimeType: 'image/png' } }
-                ] 
+                parts: parts
             }],
         });
 
@@ -2384,26 +2403,21 @@ Use the attached images as strict visual references.
    - **DO NOT GENERATE RANDOM CHARACTERS**. If a character name matches a reference image, use that reference strictly.
    - If a character's design was established in a previous page, you must infer their consistent look from the story context provided, but the Character Sheet always overrides everything regarding physical identity.
 2. **Environments**: The attached "Far View" image is your STRICT VISUAL ANCHOR. Use it to establish the room's layout, furniture placement, and atmosphere. Maintain this location's design exactly.
-3. **Continuity**: If a "Previous Page" reference is attached, you MUST ensure seamless continuity. The placement of objects and characters must logically follow the previous panel. Do not teleport furniture.
-4. **Text**: Do NOT render the page title ("${page.header.replace(/^[#\s]+/, '')}") as text in the image. You MAY render narrative captions if they are explicitly part of the panel description (e.g. "Caption: ..."), but never the page header itself.`;
+3. **Continuity**: If a "Previous Page reference" is attached, you MUST ensure seamless continuity. The placement of objects and characters must logically follow the previous panel. Do not teleport furniture.
+4. **Text & Bubbles**: ${request.twoPhase ? 'DO NOT generate any speech bubbles, caption boxes, or text. The panels should contain purely visual art.' : `Do NOT render the page title ("${page.header.replace(/^[#\s]+/, '')}") as text in the image. You MAY render narrative captions if they are explicitly part of the panel description (e.g. "Caption: ..."), but never the page header itself.`}`;
         
-        if (request.color) {
+        if (request.color && !request.twoPhase) {
             fullPrompt += "\n\n[STRICT COLOR MANDATE]\nGENERATE THIS PAGE IN FULL COLOR. You MUST match the EXACT color palette (hair, skin tone, eyes, clothing) from the attached Reference Images. Do not shift hues or saturation. IGNORE ANY PREVIOUS 'BLACK AND WHITE' INSTRUCTIONS.";
+        } else if (request.twoPhase) {
+            fullPrompt += "\n\n[STYLE MANDATE: ART PHASE]\nGENERATE THIS PAGE IN BLACK AND WHITE. Use professional manga line art, screentones, and traditional shading. NO COLOR.";
         }
 
         if (request.twoPhase) {
-            const dialogueCount = (page.content.match(/^(?!\s*(!|#|\[|>))[^:\n]+:[^:\n]+$/gm) || []).length;
-            const captionCount = (page.content.match(/^Caption:/gim) || []).length;
-            
             fullPrompt += `
 \n[TWO-PHASE GENERATION: ART PHASE]
-IMPORTANT: This is the ART PHASE. You must generate the panels and art but LEAVE THE SPEECH BUBBLES AND DIALOG BOXES EMPTY. 
-- SCRIPT ANALYSIS: The script for this page has approximately ${dialogueCount} dialogue lines and ${captionCount} captions.
-- BUBBLE PRECISION: ONLY create the number of speech bubbles and caption boxes required by the script. 
-- **DO NOT CREATE EXTRA BUBBLES**. AVOID cluttering the page with unused or decorative bubbles.
-- Ensure all speech bubbles and caption boxes are clearly rendered, large enough for text, and COMPLETELY EMPTY.
-- Do NOT add any text, letters, or gibberish inside the bubbles.
-- Focus entirely on character likeness, composition, and environment.`;
+IMPORTANT: This is the ART PHASE. You must generate the panels and art but **DO NOT CREATE SPEECH BUBBLES OR TEXT**. 
+- Focus entirely on character likeness, composition, and environment.
+- The panels should be clean and purely visual. Text and bubbles will be added in a later stage.`;
         }
 
         // Prepare Message Parts
@@ -2569,10 +2583,28 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but LEAVE
                       
                       let finalPathForReview = fullPath;
 
-                      // Phase 2: Add Text
+                      // Phase 2: Add Text & Color
                       if (request.twoPhase) {
                           try {
-                              finalPathForReview = await this.addTextToMangaPage(fullPath, page.content, page.header);
+                              // Collect all relevant references for Phase 2 (Colorization)
+                              const phase2Refs = [...globalReferenceImages];
+                              for (const imgPath of pageImagePaths) {
+                                  if (!globalImagePaths.includes(imgPath)) {
+                                      const fileRes = FileHandler.findInputFile(imgPath);
+                                      if (fileRes.found) {
+                                          const b64 = await FileHandler.readImageAsBase64(fileRes.filePath!);
+                                          phase2Refs.push({ data: b64, mimeType: 'image/png', sourcePath: fileRes.filePath! });
+                                      }
+                                  }
+                              }
+
+                              finalPathForReview = await this.addTextToMangaPage(
+                                  fullPath, 
+                                  page.content, 
+                                  page.header,
+                                  phase2Refs,
+                                  request.color || false
+                              );
                           } catch (e) {
                               console.error(`DEBUG - Phase 2 failed, falling back to Phase Art image for review.`, e);
                           }
