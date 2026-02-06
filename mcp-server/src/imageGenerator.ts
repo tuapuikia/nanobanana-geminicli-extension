@@ -25,8 +25,8 @@ export class ImageGenerator {
   private modelName: string;
   private artModel: string;
   private textModel: string;
-  private static readonly DEFAULT_MODEL = 'gemini-2.5-flash-image';
-  private static readonly DEFAULT_TEXT_MODEL = 'gemini-3-pro-image-preview';
+  private static readonly DEFAULT_MODEL = 'gemini-3-pro-image-preview';
+  private static readonly DEFAULT_TEXT_MODEL = 'gemini-2.5-flash-image';
 
   constructor(authConfig: AuthConfig) {
     this.ai = new GoogleGenAI({
@@ -889,7 +889,10 @@ export class ImageGenerator {
         }
 
         prompt += `
-        6. **Art Integrity**: Maintain the original character likenesses and composition from the attached art. Do NOT redraw the panels, only overlay the bubbles, text, and color.
+        6. **Art Integrity & Correction**: 
+           - Maintain the original panel layout and composition.
+           - **CRITICAL**: Compare the input art with the "Reference Image" portraits. If the character's face, hair, or details in the sketch are wrong or generic, **YOU MUST REDRAW/CORRECT THEM** to match the reference exactly. 
+           - The final image must have perfect on-model characters, even if the input sketch was off.
         7. Return the final high-quality image.`;
         
         // Save Phase 2 Prompt
