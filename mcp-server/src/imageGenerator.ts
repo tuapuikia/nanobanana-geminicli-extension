@@ -1022,6 +1022,11 @@ export class ImageGenerator {
              ${request.style || 'shonen'} manga style, black and white, screentones, high quality line art.
              Full body from head to toe (must include complete legs and shoes), neutral pose, white background. DO NOT SQUASH or compress the figure vertically. Ensure legs are long and anatomically correct. Avoid chibi, dwarf, or super-deformed proportions. Zoom out to fit the entire character within the frame. Leave ample white space margin around the character to prevent cropping of feet or head.`;
 
+             // Save B&W Prompt
+             try {
+                 await FileHandler.saveTextFile(path.join(promptsDir, `character_create_${safeName}_bw.txt`), bwPrompt);
+             } catch (e) { console.error('DEBUG - Failed to save BW prompt:', e); }
+
              try {
                 const bwResponse = await this.ai.models.generateContent({
                     model: this.modelName,
