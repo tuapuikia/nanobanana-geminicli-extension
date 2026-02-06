@@ -644,10 +644,11 @@ export class ImageGenerator {
         minNoBubbles?: number;
         storyContext?: string;
         isPhase1?: boolean;
+        isColor?: boolean;
     } = { minScore: 8 }
   ): Promise<{ pass: boolean; score: number; reason: string; likeness_score?: number; lettering_score?: number }> {
     const minScore = options.minScore || 8;
-    const { storyContext, minLikeness, minStory, minContinuity, isPhase1 } = options;
+    const { storyContext, minLikeness, minStory, minContinuity, isPhase1, isColor } = options;
 
     console.error(`DEBUG - Auto-Reviewing generated image for character consistency (Min Score: ${minScore})...`);
     
@@ -669,6 +670,7 @@ export class ImageGenerator {
         Task: Compare the "Generated Image" with the provided "Reference Images" (including "Previous Page Reference" if available) AND the "Story Description".
         
         ${isPhase1 ? 'PHASE: ART PHASE (No Speech Bubbles allowed. Note: Captions, sound effects, and background text are PERMITTED.)' : 'PHASE: FINAL PHASE (Lettering/Color included)'}
+        ${isColor ? 'TARGET FORMAT: FULL COLOR. (If the Story Description says "black and white", IGNORE IT. The user requested COLOR.)' : 'TARGET FORMAT: BLACK AND WHITE (Manga Style).'}
 
         STORY DESCRIPTION / CONTEXT:
         "${storyContext || 'No specific story text provided.'}"
@@ -692,15 +694,19 @@ export class ImageGenerator {
 
         CRITICAL PENALTIES:
         ${isPhase1 ? '- [STRICT] SPEECH BUBBLES: If ANY round speech bubble or thought bubble is found, the no_bubbles_score MUST be below 40%. Captions, boxes, and SFX are allowed.' : '- [STRICT] TEXT ACCURACY: If ANY text is missing, gibberish, or paraphrased (different words than script), the lettering_score MUST be below 40%.\n        - [STRICT] NO DUPLICATES: If the same line of dialogue appears twice (e.g. once in a good bubble, once in a bad/ghost bubble), the lettering_score MUST be below 60%.'}
-        - [STRICT] COLOR CONSISTENCY: Compare the hair, eye, and costume colors. If the colors deviate from the Character Reference sheet, the likeness_score MUST be below 60%.
+        ${isColor ? `- [CONDITIONAL] COLOR CONSISTENCY: Compare hair/eye/costume colors. 
+           - If the Character Reference is B&W, IGNORE color differences. 
+           - If the Reference IS Color, strict consistency is required (likeness_score < 60% if mismatched). 
+           - EXCEPTION FOR PHASE 1: If the Generated Image is Black & White (Art Phase) but the Target/Previous Page is Color, this is ACCEPTABLE. Do NOT penalize Story or Continuity scores for B&W art in Phase 1. Assume Phase 2 will colorize it.` : 
+           '- [STRICT] COLOR: If the image is in Color despite "TARGET FORMAT: BLACK AND WHITE", the story_score MUST be below 50%.'}
         - [STRICT] PANEL LAYOUT: Count the panels. If the script asks for a 3-panel stack but the image is a single splash, the story_score MUST be below 50%.
-        - If the visual style (shading/art style) clashes with the "Previous Page Reference", the continuity_score MUST be below 80%.
+        - If the visual style (shading/art style) clashes with the "Previous Page Reference" (IGNORING Color vs B&W differences in Phase 1), the continuity_score MUST be below 80%.
         - [STRICT] FACIAL IDENTITY: Compare the eyes, nose, and jawline. If it looks like a different person from the Character Reference, the likeness_score MUST be below 60%.
         - [STRICT] HAIR: The hairstyle (bangs, length, volume) must match the Main Reference exactly. If the hair is different, the likeness_score MUST be below 60%.
         - [STRICT] CLOTHING: The costume DESIGN must be consistent with the reference UNLESS the Story Description or Global Context explicitly describes a different outfit. If the BASE DESIGN changes without reason, the likeness_score MUST be below 60%.
         - If the image contradicts the Story Description (e.g. "fat" in text but "slim" in image), the story_score MUST be below 50%.
         
-        STRICTLY enforce color, identity, and ${isPhase1 ? 'ABSENCE of structural lettering elements (bubbles/captions)' : 'FULL TEXT completion'}. Do not allow "style" to excuse facial drift or ${isPhase1 ? 'bubbles' : 'empty bubbles'}.
+        STRICTLY enforce identity and ${isPhase1 ? 'ABSENCE of structural lettering elements (bubbles/captions)' : 'FULL TEXT completion'}. Do not allow "style" to excuse facial drift or ${isPhase1 ? 'bubbles' : 'empty bubbles'}.
         
         Output strictly in JSON format:
         {
@@ -2859,7 +2865,8 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                               minLettering: request.minLettering,
                               minNoBubbles: request.minNoBubbles,
                               storyContext: contextForReview,
-                              isPhase1: true
+                              isPhase1: true,
+                              isColor: request.color
                           });
 
                           if (!phase1Review.pass) {
