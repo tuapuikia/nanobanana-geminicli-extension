@@ -2496,6 +2496,7 @@ export class ImageGenerator {
         
         let existingArtPath: string | null = null;
         let latestFile: string | null = null;
+        let phase1SkippedReview = false;
 
         // Check Phase 2 (Final) Memory
         if (!request.page && memory.phase2) {
@@ -2512,6 +2513,7 @@ export class ImageGenerator {
         if (request.twoPhase && memory.phase1) {
              existingArtPath = memory.phase1;
              phase1Prompt = memory.phase1Prompt;
+             phase1SkippedReview = true;
              const msg = `✅ Memory: Found PASSED Phase 1 file: ${memory.phase1}. Resuming from Phase 2.`;
              console.error(`DEBUG - ${msg}`);
              await this.logToDisk(msg);
@@ -2897,69 +2899,72 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
 
                       // Phase 1 Review (Likeness, Continuity, NO BUBBLES)
                       if (request.twoPhase) {
-                          const contextForReview = `Scene Prompt: ${request.prompt || ''}\nScript Content: ${page.content}`;
-                          const reviewRefs = [...globalReferenceImages];
-                          if (previousPagePath) {
-                              try {
-                                 const prevB64 = await FileHandler.readImageAsBase64(previousPagePath);
-                                 reviewRefs.push({ data: prevB64, mimeType: 'image/png', sourcePath: 'Previous Page Reference' });
-                              } catch (e) {}
-                          }
-
-                          const phase1Review = await this.reviewGeneratedImage(fullPath, reviewRefs, {
-                              minScore: request.minScore || 8,
-                              minLikeness: request.minLikeness,
-                              minStory: request.minStory,
-                              minContinuity: request.minContinuity,
-                              minLettering: request.minLettering,
-                              minNoBubbles: request.minNoBubbles,
-                              storyContext: contextForReview,
-                              isPhase1: true,
-                              isColor: request.color
-                          });
-
-                          if (!phase1Review.pass) {
-                              const errorMsg = `Phase 1 Review FAILED for ${page.header} (Attempt ${attempt}). Score: ${phase1Review.score}/400. Reason: ${phase1Review.reason}.`;
-                              console.error(`❌ ${errorMsg}`);
-                              await this.logToDisk(errorMsg);
-                              
-                              // Log Failure to Memory
-                              await MemoryHandler.updateMemory(memoryPath, page.header, 1, 'FAILED', { reason: phase1Review.reason });
-                              
-                              // Delete failed file
-                              try {
-                                  await fs.promises.unlink(fullPath);
-                                  console.error(`DEBUG - Deleted failed Art image: ${fullPath}`);
-                              } catch (e) {
-                                  console.error(`DEBUG - Failed to delete ${fullPath}:`, e);
-                              }
-                              
-                              // Clear existingArtPath to ensure next attempt actually generates
-                              existingArtPath = null;
-                              
-                              // Add correction instruction
-                              correctionInstruction = `\n\n[CRITICAL ART CORRECTION]\nPrevious Art rejected: ${phase1Review.reason}\nFix likeness and ENSURE NO ROUND SPEECH BUBBLES. (Rectangular captions, SFX, and background text are okay).`;
-                              
-                              if (attempt === maxRetries) {
-                                  return { success: false, message: `Failed at Phase 1 after ${maxRetries} attempts.`, error: errorMsg, generatedFiles };
-                              }
-                              continue; // Retry Phase 1
+                          if (phase1SkippedReview) {
+                              console.error(`DEBUG - Skipping Phase 1 Review (Loaded from Memory as PASSED).`);
+                              phase1SkippedReview = false; // Reset for potential retries if Phase 2 fails
                           } else {
-                              // If passed but has warnings (especially bubbles), capture them
-                              if (phase1Review.reason && (phase1Review.reason.toLowerCase().includes('bubble') || phase1Review.reason.toLowerCase().includes('text'))) {
-                                  phase1Warning = phase1Review.reason;
-                                  console.error(`DEBUG - Phase 1 Warning Captured: ${phase1Warning}`);
+                              const contextForReview = `Scene Prompt: ${request.prompt || ''}\nScript Content: ${page.content}`;
+                              const reviewRefs = [...globalReferenceImages];
+                              if (previousPagePath) {
+                                  try {
+                                     const prevB64 = await FileHandler.readImageAsBase64(previousPagePath);
+                                     reviewRefs.push({ data: prevB64, mimeType: 'image/png', sourcePath: 'Previous Page Reference' });
+                                  } catch (e) {}
                               }
+    
+                              const phase1Review = await this.reviewGeneratedImage(fullPath, reviewRefs, {
+                                  minScore: request.minScore || 8,
+                                  minLikeness: request.minLikeness,
+                                  minStory: request.minStory,
+                                  minContinuity: request.minContinuity,
+                                  minLettering: request.minLettering,
+                                  minNoBubbles: request.minNoBubbles,
+                                  storyContext: contextForReview,
+                                  isPhase1: true,
+                                  isColor: request.color
+                              });
+    
+                              if (!phase1Review.pass) {
+                                  const errorMsg = `Phase 1 Review FAILED for ${page.header} (Attempt ${attempt}). Score: ${phase1Review.score}/400. Reason: ${phase1Review.reason}.`;
+                                  console.error(`❌ ${errorMsg}`);
+                                  await this.logToDisk(errorMsg);
+                                  
+                                  // Log Failure to Memory
+                                  await MemoryHandler.updateMemory(memoryPath, page.header, 1, 'FAILED', { reason: phase1Review.reason });
+                                  
+                                  // Delete failed file
+                                  try {
+                                      await fs.promises.unlink(fullPath);
+                                      console.error(`DEBUG - Deleted failed Art image: ${fullPath}`);
+                                  } catch (e) {
+                                      console.error(`DEBUG - Failed to delete ${fullPath}:`, e);
+                                  }
+                                  
+                                  // Clear existingArtPath to ensure next attempt actually generates
+                                  existingArtPath = null;
+                                  
+                                  // Add correction instruction
+                                  correctionInstruction = `\n\n[CRITICAL ART CORRECTION]\nPrevious Art rejected: ${phase1Review.reason}\nFix likeness and ENSURE NO ROUND SPEECH BUBBLES. (Rectangular captions, SFX, and background text are okay).`;
+                                  
+                                  if (attempt === maxRetries) {
+                                      return { success: false, message: `Failed at Phase 1 after ${maxRetries} attempts.`, error: errorMsg, generatedFiles };
+                                  }
+                                  continue; // Retry Phase 1
+                              } else {
+                                  // If passed but has warnings (especially bubbles), capture them
+                                  if (phase1Review.reason && (phase1Review.reason.toLowerCase().includes('bubble') || phase1Review.reason.toLowerCase().includes('text'))) {
+                                      phase1Warning = phase1Review.reason;
+                                      console.error(`DEBUG - Phase 1 Warning Captured: ${phase1Warning}`);
+                                  }
+                              }
+                              const msg = `✅ Phase 1 Passed Review. Proceeding to Phase 2.`;
+                              console.error(msg);
+                              await this.logToDisk(msg);
+                              
+                              // Update Memory
+                              await MemoryHandler.updateMemory(memoryPath, page.header, 1, 'PASSED', { filePath: fullPath, prompt: originalPromptText });
                           }
-                          const msg = `✅ Phase 1 Passed Review. Proceeding to Phase 2.`;
-                                            console.error(msg);
-                                            await this.logToDisk(msg);
-                                            
-                                                                                // Update Memory
-                                            
-                                                                                await MemoryHandler.updateMemory(memoryPath, page.header, 1, 'PASSED', { filePath: fullPath, prompt: originalPromptText });
-                                            
-                                                                              }
+                      }
                                             
                                                               
                                             
