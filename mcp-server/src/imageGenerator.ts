@@ -801,6 +801,13 @@ export class ImageGenerator {
     promptsDir?: string
   ): Promise<string> {
     console.error(`DEBUG - Phase 2: Adding text ${isColor ? 'and color ' : ''}to ${pageHeader} using ${this.textModel}...`);
+    if (artPrompt) {
+        const msg = `DEBUG - Phase 2 received visual context from Phase 1 prompt (${artPrompt.length} chars).`;
+        console.error(msg);
+        // We can't easily access logToDisk here without binding or passing it, but console.error should show up in CLI output.
+        // Assuming user checks CLI output or we add a helper. 
+        // Actually, I can use the same FileHandler to append if I really want to be safe, but console is good start.
+    }
     
     try {
         const imageB64 = await FileHandler.readImageAsBase64(imagePath);
@@ -859,7 +866,7 @@ export class ImageGenerator {
         // Save Phase 2 Prompt
         if (promptsDir) {
             try {
-                const safeHeader = pageHeader.replace(/[^a-z0-9]/gi, '_');
+                const safeHeader = FileHandler.getSanitizedBaseName(pageHeader);
                 const promptFile = path.join(promptsDir, `page_${safeHeader}_phase2.txt`);
                 await FileHandler.saveTextFile(promptFile, prompt);
             } catch (e) { console.error('DEBUG - Failed to save Phase 2 prompt:', e); }
@@ -2767,9 +2774,12 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                 
                 // Save Phase 1 Prompt (Before Generation)
                 try {
-                    const safeHeader = page.header.replace(/[^a-z0-9]/gi, '_');
+                    const safeHeader = FileHandler.getSanitizedBaseName(page.header);
                     const promptFile = path.join(promptsDir, `page_${safeHeader}_phase1_attempt${attempt}.txt`);
                     await FileHandler.saveTextFile(promptFile, parts[0].text);
+                    const logMsg = `Saved Phase 1 Prompt to: ${path.basename(promptFile)}`;
+                    console.error(`DEBUG - ${logMsg}`);
+                    await this.logToDisk(logMsg);
                 } catch (e) { console.error('DEBUG - Failed to save Phase 1 prompt:', e); }
 
                 try {

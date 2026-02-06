@@ -58,7 +58,8 @@ export class MemoryHandler {
         // Save Prompt if provided (only for Phase 1 usually)
         if (data?.prompt) {
              const promptMarker = `- Phase ${phase} Prompt:`;
-             const promptFileName = `prompt_${pageHeader.replace(/[^a-z0-9]/gi, '_')}_p${phase}.txt`;
+             const safeHeader = FileHandler.getSanitizedBaseName(pageHeader);
+             const promptFileName = `prompt_${safeHeader}_p${phase}.txt`;
              const promptPath = path.join(path.dirname(memoryPath), 'prompts', promptFileName);
              
              // Ensure prompts dir
