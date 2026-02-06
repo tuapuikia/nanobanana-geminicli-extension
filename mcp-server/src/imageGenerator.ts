@@ -945,12 +945,27 @@ export class ImageGenerator {
          if (storyFileRes.found) {
              try {
                 const storyText = await FileHandler.readTextFile(storyFileRes.filePath!);
-                const escapedName = sourceName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const descRegex = new RegExp(`(?:^|\\n)\\s*[\\*\\-]?\\s*\\*?\\*?${escapedName}\\*?\\*?(?::)?\\s*([^*\\n]+)`, 'i');
-                const match = storyText.match(descRegex);
+                
+                // Allow matching "the_martyr" against "The Martyr"
+                // Escape special chars but replace underscores with space-or-underscore regex
+                let namePattern = sourceName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                namePattern = namePattern.replace(/_/g, '[\\s_]+');
+                
+                // 1. Try List Style: - **Name**: Description
+                const listRegex = new RegExp(`(?:^|\\n)\\s*[\\*\\-]?\\s*\\*?\\*?(${namePattern})\\*?\\*?(?::)?\\s*([^\\n]+)`, 'i');
+                let match = storyText.match(listRegex);
+                
                 if (match) {
-                    characterDescription = match[1].trim();
-                    console.error(`DEBUG - Found description for ${sourceName}: ${characterDescription}`);
+                    characterDescription = match[2].trim();
+                    console.error(`DEBUG - Found List description for ${sourceName}: ${characterDescription}`);
+                } else {
+                    // 2. Try Header Style: ### Name (Alias) \n Description
+                    const headerRegex = new RegExp(`(?:^|\\n)#{1,6}\\s*(${namePattern})(?:[^\\n]*)?\\n+([^#\\n][\\s\\S]*?)(?=\\n#|$)`, 'i');
+                    match = storyText.match(headerRegex);
+                    if (match) {
+                        characterDescription = match[2].trim();
+                        console.error(`DEBUG - Found Header description for ${sourceName}: ${characterDescription.substring(0, 50)}...`);
+                    }
                 }
              } catch (e) {
                  console.error(`DEBUG - Failed to read/parse story file for description:`, e);
