@@ -636,10 +636,11 @@ export class ImageGenerator {
         minContinuity?: number;
         minLettering?: number;
         storyContext?: string;
+        isPhase1?: boolean;
     } = { minScore: 8 }
-  ): Promise<{ pass: boolean; score: number; reason: string }> {
+  ): Promise<{ pass: boolean; score: number; reason: string; likeness_score?: number; lettering_score?: number }> {
     const minScore = options.minScore || 8;
-    const { storyContext, minLikeness, minStory, minContinuity } = options;
+    const { storyContext, minLikeness, minStory, minContinuity, isPhase1 } = options;
 
     console.error(`DEBUG - Auto-Reviewing generated image for character consistency (Min Score: ${minScore})...`);
     
@@ -660,27 +661,30 @@ export class ImageGenerator {
         const prompt = `You are a strict Quality Assurance AI for a manga production pipeline.
         Task: Compare the "Generated Image" with the provided "Reference Images" (including "Previous Page Reference" if available) AND the "Story Description".
         
+        ${isPhase1 ? 'PHASE: ART PHASE (No Bubbles/Text allowed)' : 'PHASE: FINAL PHASE (Lettering/Color included)'}
+
         STORY DESCRIPTION / CONTEXT:
         "${storyContext || 'No specific story text provided.'}"
 
         EVALUATION CRITERIA (Scored out of 100% each):
         1. [CRITICAL] Likeness & Identity (100% max): Does the character look EXACTLY like the main Character Reference sheet? Check eye shape, hair style/bangs, and facial structure. Identity must be 100% consistent with the Ground Truth Character Sheet.
         2. [CRITICAL] Continuity (100% max): Does the overall visual style (line weight, shading, lighting) match the "Previous Page Reference"?
-        3. [CRITICAL] Lettering & Text (100% max): Are ALL speech bubbles and caption boxes filled with the correct text from the Story Description? Are there any empty bubbles? Is the text legible and well-centered?
+        3. [CRITICAL] ${isPhase1 ? 'NO BUBBLES OR TEXT' : 'Lettering & Text'} (100% max): 
+           ${isPhase1 ? 'Does the image contain ANY speech bubbles, caption boxes, or text? It MUST be PURE ART only. Any presence of bubbles/text is a FAILURE.' : 'Are ALL speech bubbles and caption boxes filled with the correct text from the Story Description? Are there any empty bubbles? Is the text legible and well-centered?'}
         4. [IMPORTANT] Story Accuracy (100% max): Does the image match the provided Story Description (actions, emotions, specific items)?
 
         TOTAL POSSIBLE SCORE: 400%.
         10/10 quality in all categories equals 400%.
 
         SCORING RUBRIC (Be Extremely Strict):
-        - 100%: Perfect match. Identical face, hair, colors, and style. All text present and beautiful.
-        - 90%: Excellent likeness and lettering. Only pixel-level differences.
+        - 100%: Perfect match. Identical face, hair, colors, and style. ${isPhase1 ? 'Absolutely NO bubbles/text.' : 'All text present and beautiful.'}
+        - 90%: Excellent likeness. ${isPhase1 ? 'No bubbles.' : 'No empty bubbles.'} Only pixel-level differences.
         - 70-80%: Recognizable as the same person, or text has minor spacing issues. FACE MUST MATCH.
-        - 50-60%: Looks like a different person OR at least one speech bubble is empty/gibberish.
+        - 50-60%: Looks like a different person OR ${isPhase1 ? 'Contains bubbles/text' : 'at least one speech bubble is empty/gibberish'}.
         - 10-40%: Completely wrong person, or text is missing entirely.
 
         CRITICAL PENALTIES:
-        - [STRICT] EMPTY BUBBLES: If ANY speech bubble or caption box is empty or contains placeholder text, the lettering_score MUST be below 40%.
+        ${isPhase1 ? '- [STRICT] BUBBLES/TEXT: If ANY speech bubble, caption box, or text is found, the no_bubbles_score MUST be 0%.' : '- [STRICT] EMPTY BUBBLES: If ANY speech bubble or caption box is empty or contains placeholder text, the lettering_score MUST be below 40%.'}
         - [STRICT] COLOR CONSISTENCY: Compare the hair, eye, and costume colors. If the colors deviate from the Character Reference sheet, the likeness_score MUST be below 60%.
         - If the visual style (shading/art style) clashes with the "Previous Page Reference", the continuity_score MUST be below 80%.
         - [STRICT] FACIAL IDENTITY: Compare the eyes, nose, and jawline. If it looks like a different person from the Character Reference, the likeness_score MUST be below 60%.
@@ -688,17 +692,17 @@ export class ImageGenerator {
         - [STRICT] CLOTHING: The costume DESIGN must be consistent with the reference UNLESS the Story Description or Global Context explicitly describes a different outfit. If the BASE DESIGN changes without reason, the continuity_score MUST be below 60%.
         - If the image contradicts the Story Description (e.g. "fat" in text but "slim" in image), the story_score MUST be below 50%.
         
-        STRICTLY enforce color, identity, and FULL TEXT completion. Do not allow "style" to excuse facial drift or empty bubbles.
+        STRICTLY enforce color, identity, and ${isPhase1 ? 'ABSENCE of text elements' : 'FULL TEXT completion'}. Do not allow "style" to excuse facial drift or ${isPhase1 ? 'bubbles' : 'empty bubbles'}.
         
         Output strictly in JSON format:
         {
             "likeness_score": number, // 0-100
             "continuity_score": number, // 0-100
-            "lettering_score": number, // 0-100
+            "${isPhase1 ? 'no_bubbles_score' : 'lettering_score'}": number, // 0-100
             "story_score": number, // 0-100
             "total_score": number, // 0-400
             "reason": "string", // Specific feedback on what is wrong.
-            "pass": boolean // true if total_score >= 340 AND likeness_score >= 70 AND lettering_score >= 90
+            "pass": boolean // true if total_score >= 340 AND likeness_score >= 70 AND ${isPhase1 ? 'no_bubbles_score' : 'lettering_score'} >= 95
         }`;
 
         const parts: any[] = [{ text: prompt }];
@@ -715,7 +719,7 @@ export class ImageGenerator {
         }
 
         const response = await this.ai.models.generateContent({
-            model: this.modelName, 
+            model: this.textModel, 
             config: {
                 responseModalities: ['TEXT'],
                 responseMimeType: 'application/json',
@@ -746,9 +750,13 @@ export class ImageGenerator {
             result.likeness_score >= thresholdLikeness &&
             result.story_score >= thresholdStory &&
             result.continuity_score >= thresholdContinuity &&
-            result.lettering_score >= thresholdLettering;
+            (isPhase1 ? (result.no_bubbles_score >= 95) : (result.lettering_score >= thresholdLettering));
         
-        const logMsg = `[Auto-Review] Model: ${this.modelName}. Total: ${result.total_score}/400% (Likeness: ${result.likeness_score}%, Continuity: ${result.continuity_score}%, Story: ${result.story_score}%, Lettering: ${result.lettering_score}%). Threshold: ${scoreThreshold}% & Likeness >= ${thresholdLikeness}% & Lettering >= ${thresholdLettering}%. Pass: ${calculatedPass}. Reason: ${result.reason}`;
+        const phaseLabel = isPhase1 ? "Art" : "Final";
+        const specialScoreLabel = isPhase1 ? "NoBubbles" : "Lettering";
+        const specialScoreValue = isPhase1 ? result.no_bubbles_score : result.lettering_score;
+
+        const logMsg = `[Auto-Review ${phaseLabel}] Model: ${this.textModel}. Total: ${result.total_score}/400% (Likeness: ${result.likeness_score}%, Continuity: ${result.continuity_score}%, Story: ${result.story_score}%, ${specialScoreLabel}: ${specialScoreValue}%). Threshold: ${scoreThreshold}% & Likeness >= ${thresholdLikeness}% & ${specialScoreLabel} >= ${isPhase1 ? 95 : thresholdLettering}%. Pass: ${calculatedPass}. Reason: ${result.reason}`;
         console.error(`DEBUG - ${logMsg}`);
         
         // Log to file
@@ -764,7 +772,9 @@ export class ImageGenerator {
         return {
             pass: calculatedPass,
             score: result.total_score,
-            reason: result.reason
+            reason: result.reason,
+            likeness_score: result.likeness_score,
+            lettering_score: isPhase1 ? result.no_bubbles_score : result.lettering_score
         };
 
     } catch (error) {
@@ -2415,9 +2425,12 @@ Use the attached images as strict visual references.
         if (request.twoPhase) {
             fullPrompt += `
 \n[TWO-PHASE GENERATION: ART PHASE]
-IMPORTANT: This is the ART PHASE. You must generate the panels and art but **DO NOT CREATE SPEECH BUBBLES OR TEXT**. 
+IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STRICTLY PROHIBITED: NO SPEECH BUBBLES, NO CAPTION BOXES, NO DIALOGUE BOXES, NO TEXT**. 
+- The entire frame must be filled with character and environment art only.
+- ZERO white space reserved for text.
+- ZERO placeholder ovals or squares.
 - Focus entirely on character likeness, composition, and environment.
-- The panels should be clean and purely visual. Text and bubbles will be added in a later stage.`;
+- The panels should be clean, professional illustration only.`;
         }
 
         // Prepare Message Parts
@@ -2548,7 +2561,7 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **DO 
                   model: this.artModel,
                   contents: [{ role: 'user', parts: parts }],
                   config: {
-                    responseModalities: request.includeText ? ['IMAGE', 'TEXT'] : ['IMAGE'],
+                    responseModalities: (request.twoPhase ? false : request.includeText) ? ['IMAGE', 'TEXT'] : ['IMAGE'],
                     imageConfig: {
                       aspectRatio: this.getAspectRatioString(request.layout),
                     },
@@ -2581,6 +2594,49 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **DO 
                       
                       await this.logGeneration(this.artModel, [fullPath], `Phase 1 (Art) for ${page.header}`);
                       
+                      // Phase 1 Review (Likeness, Continuity, NO BUBBLES)
+                      if (request.twoPhase) {
+                          const contextForReview = `Scene Prompt: ${request.prompt || ''}\nScript Content: ${page.content}`;
+                          const reviewRefs = [...globalReferenceImages];
+                          if (previousPagePath) {
+                              try {
+                                 const prevB64 = await FileHandler.readImageAsBase64(previousPagePath);
+                                 reviewRefs.push({ data: prevB64, mimeType: 'image/png', sourcePath: 'Previous Page Reference' });
+                              } catch (e) {}
+                          }
+
+                          const phase1Review = await this.reviewGeneratedImage(fullPath, reviewRefs, {
+                              minScore: request.minScore || 8,
+                              minLikeness: request.minLikeness,
+                              minStory: request.minStory,
+                              minContinuity: request.minContinuity,
+                              storyContext: contextForReview,
+                              isPhase1: true
+                          });
+
+                          if (!phase1Review.pass) {
+                              const errorMsg = `Phase 1 Review FAILED for ${page.header} (Attempt ${attempt}). Score: ${phase1Review.score}/400. Reason: ${phase1Review.reason}.`;
+                              console.error(`❌ ${errorMsg}`);
+                              
+                              // Delete failed file
+                              try {
+                                  await fs.promises.unlink(fullPath);
+                                  console.error(`DEBUG - Deleted failed Art image: ${fullPath}`);
+                              } catch (e) {
+                                  console.error(`DEBUG - Failed to delete ${fullPath}:`, e);
+                              }
+                              
+                              // Add correction instruction
+                              correctionInstruction = `\n\n[CRITICAL ART CORRECTION]\nPrevious Art rejected: ${phase1Review.reason}\nFix likeness and ENSURE NO BUBBLES/TEXT.`;
+                              
+                              if (attempt === maxRetries) {
+                                  return { success: false, message: `Failed at Phase 1 after ${maxRetries} attempts.`, error: errorMsg, generatedFiles };
+                              }
+                              continue; // Retry Phase 1
+                          }
+                          console.error(`✅ Phase 1 Passed Review. Proceeding to Phase 2.`);
+                      }
+
                       let finalPathForReview = fullPath;
 
                       // Phase 2: Add Text & Color
@@ -2639,7 +2695,18 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **DO 
                       
                       if (review.pass) {
                           generatedFiles.push(finalPathForReview);
-                          await this.logGeneration(this.modelName, [finalPathForReview]);
+                          await this.logGeneration(request.twoPhase ? this.textModel : this.artModel, [finalPathForReview]);
+                          
+                          // Cleanup intermediate Phase 1 Art file
+                          if (request.twoPhase && finalPathForReview !== fullPath) {
+                              try {
+                                  await fs.promises.unlink(fullPath);
+                                  console.error(`DEBUG - Cleaned up intermediate Art file: ${fullPath}`);
+                              } catch (e) {
+                                  console.error(`DEBUG - Failed to delete intermediate file:`, e);
+                              }
+                          }
+
                           previousPagePath = finalPathForReview; // Update for next iteration
                           finalGeneratedPath = finalPathForReview;
                           attemptSuccess = true;
@@ -2650,11 +2717,17 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **DO 
                           const errorMsg = `Review FAILED for ${page.header} (Attempt ${attempt}). Score: ${review.score}/10. Reason: ${review.reason}.`;
                           console.error(`❌ ${errorMsg}`);
                           
-                          // Rename failed file to avoid overwrite and allow inspection
-                          const failedFilename = filename.replace('.png', `_FAILED_try${attempt}.png`);
-                          const failedPath = path.join(path.dirname(fullPath), failedFilename);
-                          await fs.promises.rename(finalPathForReview, failedPath);
-                          console.error(`DEBUG - Renamed failed image to: ${failedFilename}`);
+                          // Delete failed files
+                          try {
+                              await fs.promises.unlink(finalPathForReview);
+                              console.error(`DEBUG - Deleted failed Final image: ${finalPathForReview}`);
+                              if (finalPathForReview !== fullPath) {
+                                  await fs.promises.unlink(fullPath);
+                                  console.error(`DEBUG - Deleted failed Art image: ${fullPath}`);
+                              }
+                          } catch (e) {
+                              console.error(`DEBUG - Failed to clean up failed images:`, e);
+                          }
                           
                           // Dynamic Correction Logic
                           const reasonLower = review.reason.toLowerCase();
