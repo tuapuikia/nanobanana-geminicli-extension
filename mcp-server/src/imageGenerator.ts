@@ -6,6 +6,7 @@
 
 import { GoogleGenAI } from '@google/genai';
 import { FileHandler } from './fileHandler.js';
+import { MemoryHandler } from './memoryHandler.js';
 import * as path from 'path';
 import * as fs from 'fs';
 import {
@@ -675,21 +676,21 @@ export class ImageGenerator {
         1. [CRITICAL] Character Design & Identity (100% max): Does the character look EXACTLY like the main Character Reference sheet? Check eye shape, hair style/bangs, facial structure, BODY TYPE, and COSTUME. Identity and Design must be 100% consistent with the Ground Truth Character Sheet.
         2. [CRITICAL] Continuity (100% max): Does the overall visual style (line weight, shading, lighting) match the "Previous Page Reference"?
         3. [CRITICAL] ${isPhase1 ? 'NO SPEECH BUBBLES' : 'Lettering & Text'} (100% max): 
-           ${isPhase1 ? 'Does the image contain any round SPEECH BUBBLES or THOUGHT BUBBLES? These are forbidden. NOTE: Rectangular caption boxes, sound effects (SFX), and incidental text on objects/walls are ALL PERMITTED. Only actual dialogue bubbles (usually white ovals with tails) are a failure.' : 'Are ALL speech bubbles and caption boxes filled with the CORRECT text from the Story Description? Check for GIBBERISH or RANDOM TEXT. Any text that does not match the script or looks like garbled nonsense is a CRITICAL FAILURE.'}
+           ${isPhase1 ? 'Does the image contain any round SPEECH BUBBLES or THOUGHT BUBBLES? These are forbidden. NOTE: Rectangular caption boxes, sound effects (SFX), and incidental text on objects/walls are ALL PERMITTED. Only actual dialogue bubbles (usually white ovals with tails) are a failure.' : 'Are ALL speech bubbles and caption boxes filled with the CORRECT text from the Story Description? 1. Check for GIBBERISH. 2. Check for MISSING DIALOGUE. Every line in the script must be in the image. 3. Check for hallucinations.'}
         4. [CRITICAL] Story Accuracy & Panel Layout (100% max): Does the image match the provided Story Description (actions, emotions, items) AND the PANEL LAYOUT? If the script describes multiple panels (e.g., "Panel 1", "Panel 2"), the image MUST show that structure. If it describes a splash page, it must be one large image.
 
         TOTAL POSSIBLE SCORE: 400%.
         10/10 quality in all categories equals 400%.
 
         SCORING RUBRIC (Be Extremely Strict):
-        - 100%: Perfect match. Identical face, hair, costume, and layout. ${isPhase1 ? 'No speech bubbles.' : 'All text is legible, matches script exactly, no gibberish.'}
+        - 100%: Perfect match. Identical face, hair, costume, and layout. ${isPhase1 ? 'No speech bubbles.' : 'All text is legible, matches script exactly (no missing lines), no gibberish.'}
         - 90%: Excellent likeness and layout. ${isPhase1 ? 'No speech bubbles.' : 'No empty bubbles, minor spacing issues.'} Only pixel-level differences.
         - 70-80%: Recognizable, but minor costume or layout details are off. FACE MUST MATCH.
-        - 50-60%: Looks like a different person, wrong outfit, wrong panel count, OR ${isPhase1 ? 'Contains speech bubbles' : 'contains GIBBERISH, empty bubbles, or text not in script'}.
+        - 50-60%: Looks like a different person, wrong outfit, wrong panel count, OR ${isPhase1 ? 'Contains speech bubbles' : 'contains GIBBERISH, MISSING DIALOGUE lines, or text not in script'}.
         - 10-40%: Completely wrong person, wrong layout, or text is missing entirely.
 
         CRITICAL PENALTIES:
-        ${isPhase1 ? '- [STRICT] SPEECH BUBBLES: If ANY round speech bubble or thought bubble is found, the no_bubbles_score MUST be 0%. Captions, boxes, and SFX are allowed.' : '- [STRICT] TEXT QUALITY: If ANY speech bubble contains gibberish, random letters, or text not in the script, the lettering_score MUST be below 40%. Empty bubbles are also a failure.'}
+        ${isPhase1 ? '- [STRICT] SPEECH BUBBLES: If ANY round speech bubble or thought bubble is found, the no_bubbles_score MUST be 0%. Captions, boxes, and SFX are allowed.' : '- [STRICT] TEXT QUALITY: If ANY speech bubble contains gibberish, or if script dialogue is MISSING, the lettering_score MUST be below 40%. Empty bubbles are also a failure.'}
         - [STRICT] COLOR CONSISTENCY: Compare the hair, eye, and costume colors. If the colors deviate from the Character Reference sheet, the likeness_score MUST be below 60%.
         - [STRICT] PANEL LAYOUT: Count the panels. If the script asks for a 3-panel stack but the image is a single splash, the story_score MUST be below 50%.
         - If the visual style (shading/art style) clashes with the "Previous Page Reference", the continuity_score MUST be below 80%.
@@ -801,12 +802,30 @@ export class ImageGenerator {
     try {
         const imageB64 = await FileHandler.readImageAsBase64(imagePath);
         
+        // Extract Dialogue for Checklist to prevent missing text
+        const dialogRegex = /(?:^|\n)\s*(?:[-*]\s*)?(?:\*\*)?([a-zA-Z0-9 '\-]+?)(?:\*\*)?\s*:\s*["“](.*?)["”]/g;
+        const dialogueList: string[] = [];
+        let match;
+        while ((match = dialogRegex.exec(storyContent)) !== null) {
+            dialogueList.push(`${match[1].trim()}: "${match[2].trim()}"`);
+        }
+        
+        let checklist = "";
+        if (dialogueList.length > 0) {
+            checklist = "\n[MANDATORY DIALOGUE CHECKLIST]\nYou MUST include the following dialogue lines EXACTLY as written. Do not skip any:\n";
+            dialogueList.forEach((line, index) => {
+                checklist += `${index + 1}. ${line}\n`;
+            });
+            checklist += "Double-check that ALL lines above are present in the final image.\n";
+        }
+
         let prompt = `You are a professional manga editor and artist. 
         Task: Add dialogue bubbles and text from the provided story script onto the attached manga page art. 
         ${isColor ? 'Also, COLORIZE the page using the provided reference images.' : ''}
         
         STORY SCRIPT FOR ${pageHeader}:
         "${storyContent}"
+        ${checklist}
         
         INSTRUCTIONS:
         1. **Create Dialogue Bubbles**: Analyze the script and the panels in the attached art. Create speech bubbles and caption boxes that fit the dialogue and composition.
@@ -1351,6 +1370,9 @@ export class ImageGenerator {
       const storyContent = await FileHandler.readTextFile(
         storyFileResult.filePath!,
       );
+
+      // Memory File Setup
+      const memoryPath = await MemoryHandler.getMemoryFilePath(storyFileResult.filePath!);
 
       // Parse Story Content for Pages
       // Splits by headers like "# Page 1", "## Page 2", "Page 3:"
@@ -2364,16 +2386,41 @@ export class ImageGenerator {
 
         console.error(`DEBUG - Processing ${page.header}...`);
 
+        // MEMORY CHECK
+        const memory = await MemoryHandler.checkMemory(memoryPath, page.header);
+        
+        let existingArtPath: string | null = null;
+        let latestFile: string | null = null;
+
+        // Check Phase 2 (Final) Memory
+        if (!request.page && memory.phase2) {
+             const msg = `✅ Memory: Found PASSED Phase 2 file: ${memory.phase2}. SKIPPING generation.`;
+             console.error(`DEBUG - ${msg}`);
+             await this.logToDisk(msg);
+             previousPagePath = memory.phase2;
+             generatedFiles.push(memory.phase2);
+             continue; // Skip this page
+        }
+
+        // Check Phase 1 Memory
+        if (request.twoPhase && !request.page && memory.phase1) {
+             existingArtPath = memory.phase1;
+             const msg = `✅ Memory: Found PASSED Phase 1 file: ${memory.phase1}. Resuming from Phase 2.`;
+             console.error(`DEBUG - ${msg}`);
+             await this.logToDisk(msg);
+        }
+
         // Check if page already exists to support resume capability
         const filenamePrompt = `manga ${page.header}`;
         const baseName = FileHandler.getSanitizedBaseName(filenamePrompt);
         
-        console.error(`DEBUG - Checking for existing files for: "${page.header}" (Base: ${baseName})`);
+        if (!existingArtPath) {
+             console.error(`DEBUG - Checking for existing files for: "${page.header}" (Base: ${baseName})`);
+             latestFile = FileHandler.findLatestFile(baseName);
+        }
 
-        let latestFile = FileHandler.findLatestFile(baseName);
-        
         // Fallback: If exact match failed, try fuzzy search by page number
-        if (!latestFile) {
+        if (!latestFile && !existingArtPath) {
             const pageNumMatch = page.header.match(/Page\s*(\d+)/i);
             if (pageNumMatch) {
                 console.error(`DEBUG - Exact match not found. Trying fuzzy search for Page ${pageNumMatch[1]}...`);
@@ -2388,7 +2435,7 @@ export class ImageGenerator {
 
         // Only skip if NOT explicitly requested via --page
         if (!request.page && latestFile && latestFile.includes('_final')) {
-            const msg = `✅ Final file found: ${latestFile}. SKIPPING generation (Resume Mode).`;
+            const msg = `✅ Final file found on disk: ${latestFile}. SKIPPING generation (Resume Mode).`;
             console.error(`DEBUG - ${msg}`);
             await this.logToDisk(msg);
             previousPagePath = latestFile;
@@ -2399,16 +2446,17 @@ export class ImageGenerator {
              console.error(`DEBUG - ${msg}`);
              await this.logToDisk(msg);
         } else {
-             const msg = `No finished file found for "${page.header}". Proceeding with generation.`;
-             console.error(`DEBUG - ${msg}`);
-             await this.logToDisk(msg);
+             if (!existingArtPath) {
+                 const msg = `No finished file found for "${page.header}". Proceeding with generation.`;
+                 console.error(`DEBUG - ${msg}`);
+                 await this.logToDisk(msg);
+             }
         }
 
-        // Phase 1 Art Resume Check
-        let existingArtPath: string | null = null;
-        if (request.twoPhase && !request.page && latestFile && latestFile.includes('_phase_1')) {
+        // File-based Phase 1 Art Resume Check (Fallback if memory didn't catch it)
+        if (!existingArtPath && request.twoPhase && !request.page && latestFile && latestFile.includes('_phase_1')) {
             existingArtPath = latestFile;
-            const msg = `Found existing Phase 1 art: ${existingArtPath}. Resuming from Phase 2.`;
+            const msg = `Found existing Phase 1 art on disk: ${existingArtPath}. Resuming from Phase 2.`;
             console.error(`DEBUG - ${msg}`);
             await this.logToDisk(msg);
         }
@@ -2438,12 +2486,37 @@ export class ImageGenerator {
 
         // Construct Prompt
         let fullPrompt = `${request.prompt}, ${ratioInstruction}\n\n[GLOBAL CONTEXT]\n${globalContext}\n\n[CURRENT PAGE: ${page.header}]\n${page.content}`;
+        
+        // Inject Failure Memory
+        const failureData = await MemoryHandler.getFailures(memoryPath, page.header);
+        if (failureData.reasons.length > 0) {
+            fullPrompt += `\n\n[CRITICAL WARNING: PAST FAILURES]\nThis page has failed previously. You MUST avoid the following errors:\n`;
+            failureData.reasons.forEach(f => fullPrompt += `- ${f}\n`);
+            fullPrompt += `PAY EXTRA ATTENTION TO THESE SPECIFIC ISSUES.`;
+            console.error(`DEBUG - Injected ${failureData.reasons.length} past failure(s) into prompt.`);
+        }
+        
+        // Use failed Phase 2 image as "Layout Reference" if available
+        let failedAttemptRef: { data: string, mimeType: string } | null = null;
+        if (failureData.failedPaths.length > 0) {
+             const lastFailedPath = failureData.failedPaths[failureData.failedPaths.length - 1];
+             try {
+                 const failedB64 = await FileHandler.readImageAsBase64(lastFailedPath);
+                 failedAttemptRef = { data: failedB64, mimeType: 'image/png' };
+                 fullPrompt += `\n\n[PREVIOUS ATTEMPT REFERENCE]\nSee attached "Reference: Previous Attempt". The text was incorrect/gibberish, but the BUBBLE LAYOUT might be useful. You may use it as a layout guide but MUST write correct text.`;
+                 console.error(`DEBUG - Added failed attempt as reference: ${lastFailedPath}`);
+             } catch (e) {
+                 console.error(`DEBUG - Failed to load failed reference:`, e);
+             }
+        }
+
         fullPrompt += `
 \n[INSTRUCTION]
 Use the attached images as strict visual references.
 1. **Characters**: **STRICTLY COPY** the facial features and hairstyle from the attached reference images.
    - The attached reference images are the **SUPREME AUTHORITY** and **GROUND TRUTH** for the character's **FACE AND HAIR**. You must generate the **SAME PERSON**.
-   - **FACE CONSISTENCY IS MANDATORY**: If the character's face in the "Previous Page Reference" differs even slightly from the "Character Sheet", you MUST ignore the previous page and follow the "Character Sheet" exactly.
+   - **FACE CONSISTENCY IS MANDATORY**: Pay attention to **Eye Shape**, **Jawline**, **Nose Shape**, **Hair Parting**, and **Hair Volume**. Do not apply a generic "anime face" that erases these specific features.
+   - If the character's face in the "Previous Page Reference" differs even slightly from the "Character Sheet", you MUST ignore the previous page and follow the "Character Sheet" exactly.
    - **COSTUME & CLOTHING**: 
      - IF the text in the "GLOBAL CONTEXT" (character description) or "CURRENT PAGE" describes a specific outfit (e.g., 'wearing a tuxedo' or 'battle armor'), the **TEXT OVERRIDES THE IMAGE**. Use the text for the clothing, and the reference image only for the face/hair likeness.
      - IF NO specific outfit is mentioned in the text, you MUST follow the clothing shown in the Character Sheet/Reference Image exactly.
@@ -2507,6 +2580,12 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
         fullPrompt += `\n\n${referenceTags}`;
 
         parts.push({ text: fullPrompt });
+
+        // Add Failed Attempt Reference
+        if (failedAttemptRef) {
+             parts.push({ text: "Reference: Previous Attempt (Bad Text/Layout)" });
+             parts.push({ inlineData: failedAttemptRef });
+        }
 
         // Add Global References with Labels
         for (const img of globalReferenceImages) {
@@ -2685,6 +2764,9 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                               console.error(`❌ ${errorMsg}`);
                               await this.logToDisk(errorMsg);
                               
+                              // Log Failure to Memory
+                              await MemoryHandler.updateMemory(memoryPath, page.header, 1, 'FAILED', { reason: phase1Review.reason });
+                              
                               // Delete failed file
                               try {
                                   await fs.promises.unlink(fullPath);
@@ -2704,14 +2786,15 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                               }
                               continue; // Retry Phase 1
                           }
-                          const msg = `✅ Phase 1 Passed Review. Proceeding to Phase 2.`;
-                          console.error(msg);
-                          await this.logToDisk(msg);
-                      }
-
-                      let finalPathForReview = fullPath;
-
-                      // Phase 2: Add Text & Color
+                                            const msg = `✅ Phase 1 Passed Review. Proceeding to Phase 2.`;
+                                            console.error(msg);
+                                            await this.logToDisk(msg);
+                                            
+                                                              // Update Memory
+                                                              await MemoryHandler.updateMemory(memoryPath, page.header, 1, 'PASSED', { filePath: fullPath });
+                                                            }
+                                            
+                                                            let finalPathForReview = fullPath;                      // Phase 2: Add Text & Color
                       if (request.twoPhase) {
                           try {
                               // Collect all relevant references for Phase 2 (Colorization)
@@ -2782,21 +2865,40 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                           previousPagePath = finalPathForReview; // Update for next iteration
                           finalGeneratedPath = finalPathForReview;
                           attemptSuccess = true;
-                          const msg = `SUCCESS: Generated ${page.header} on attempt ${attempt}. Score: ${review.score}`;
-                          console.error(`DEBUG - ${msg}`);
-                          await this.logToDisk(msg);
-                          break; 
-                      } else {
-                          const errorMsg = `Review FAILED for ${page.header} (Attempt ${attempt}). Score: ${review.score}/10. Reason: ${review.reason}.`;
+                                                    const msg = `SUCCESS: Generated ${page.header} on attempt ${attempt}. Score: ${review.score}`;
+                                                    console.error(`DEBUG - ${msg}`);
+                                                    await this.logToDisk(msg);
+                                                    
+                                                                                                        // Update Memory
+                                                    
+                                                                                                        await MemoryHandler.updateMemory(memoryPath, page.header, 2, 'PASSED', { filePath: finalPathForReview });
+                                                    
+                                                                                                        break;
+                                                    
+                                                                                                    } else {                          const errorMsg = `Review FAILED for ${page.header} (Attempt ${attempt}). Score: ${review.score}/10. Reason: ${review.reason}.`;
                           console.error(`❌ ${errorMsg}`);
                           await this.logToDisk(errorMsg);
+                          
+                          // Log Failure to Memory
+                          await MemoryHandler.updateMemory(memoryPath, page.header, 2, 'FAILED', { reason: review.reason });
                           
                           // Delete failed files
                           try {
                               if (finalPathForReview !== fullPath) {
-                                  // Always delete the failed Phase 2 file
-                                  await fs.promises.unlink(finalPathForReview);
-                                  console.error(`DEBUG - Deleted failed Final image: ${finalPathForReview}`);
+                                  // RENAME failed Phase 2 file for reference instead of deleting
+                                  const dir = path.dirname(finalPathForReview);
+                                  const ext = path.extname(finalPathForReview);
+                                  const base = path.basename(finalPathForReview, ext);
+                                  const failedFilename = `${base}_failed_${Date.now()}${ext}`;
+                                  const failedPath = path.join(dir, failedFilename);
+                                  
+                                  await fs.promises.rename(finalPathForReview, failedPath);
+                                  console.error(`DEBUG - Renamed failed Final image to: ${failedPath}`);
+                                  
+                                  // Log Failure to Memory with path
+                                  await MemoryHandler.updateMemory(memoryPath, page.header, 2, 'FAILED', { reason: review.reason, failedPath: failedPath });
+                              } else {
+                                   await MemoryHandler.updateMemory(memoryPath, page.header, 2, 'FAILED', { reason: review.reason });
                               }
                               
                               if (request.twoPhase) {
