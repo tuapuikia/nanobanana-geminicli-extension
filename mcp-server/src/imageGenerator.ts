@@ -2888,7 +2888,11 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                             filename,
                           );
                           
-                          await this.logGeneration(this.artModel, [fullPath], `Phase 1 (Art) for ${page.header}`);
+                          await this.logGeneration(
+                              activeModel, 
+                              [fullPath], 
+                              request.twoPhase ? `Phase 1 (Art) for ${page.header}` : `Single Phase for ${page.header}`
+                          );
                           imageSaved = true;
                           break;
                         }
