@@ -964,20 +964,25 @@ export class ImageGenerator {
                 let namePattern = sourceName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                 namePattern = namePattern.replace(/_/g, '[\\s_]+');
                 
-                // 1. Try List Style: - **Name**: Description
-                const listRegex = new RegExp(`(?:^|\\n)\\s*[\\*\\-]?\\s*\\*?\\*?(${namePattern})\\*?\\*?(?::)?\\s*([^\\n]+)`, 'i');
-                let match = storyText.match(listRegex);
+                // 1. Try Header Style FIRST (Prioritize definitions over dialogue)
+                // Matches: ### Name (Alias) \n Description
+                const headerRegex = new RegExp(
+                    `(?:^|\\n)#{1,6}\\s*(${namePattern})(?:[^\\n]*)?\\n+([^#\\n][\\s\\S]*?)(?=\\n#|$)`,
+                    'i'
+                );
+                let match = storyText.match(headerRegex);
                 
                 if (match) {
                     characterDescription = match[2].trim();
-                    console.error(`DEBUG - Found List description for ${sourceName}: ${characterDescription}`);
+                    console.error(`DEBUG - Found Header description for ${sourceName}: ${characterDescription.substring(0, 50)}...`);
                 } else {
-                    // 2. Try Header Style: ### Name (Alias) \n Description
-                    const headerRegex = new RegExp(`(?:^|\\n)#{1,6}\\s*(${namePattern})(?:[^\\n]*)?\\n+([^#\\n][\\s\\S]*?)(?=\\n#|$)`, 'i');
-                    match = storyText.match(headerRegex);
+                    // 2. Try List Style: - **Name**: Description
+                    const listRegex = new RegExp(`(?:^|\\n)\\s*[\\*\\-]?\\s*\\*?\\*?(${namePattern})\\*?\\*?(?::)?\\s*([^\\n]+)`, 'i');
+                    match = storyText.match(listRegex);
+                    
                     if (match) {
                         characterDescription = match[2].trim();
-                        console.error(`DEBUG - Found Header description for ${sourceName}: ${characterDescription.substring(0, 50)}...`);
+                        console.error(`DEBUG - Found List description for ${sourceName}: ${characterDescription}`);
                     }
                 }
              } catch (e) {
