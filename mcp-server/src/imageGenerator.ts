@@ -2601,10 +2601,24 @@ export class ImageGenerator {
         // Inject Failure Memory
         const failureData = await MemoryHandler.getFailures(memoryPath, page.header);
         if (failureData.reasons.length > 0) {
-            fullPrompt += `\n\n[CRITICAL WARNING: PAST FAILURES]\nThis page has failed previously. You MUST avoid the following errors:\n`;
-            failureData.reasons.forEach(f => fullPrompt += `- ${f}\n`);
-            fullPrompt += `PAY EXTRA ATTENTION TO THESE SPECIFIC ISSUES.`;
-            console.error(`DEBUG - Injected ${failureData.reasons.length} past failure(s) into prompt.`);
+            // Filter out obsolete color warnings if we are in Two-Phase mode (where Phase 1 can be B&W)
+            const activeReasons = failureData.reasons.filter(r => {
+                if (request.twoPhase && (
+                    r.includes("TARGET FORMAT: FULL COLOR") || 
+                    r.includes("lack of color") || 
+                    r.includes("black and white")
+                )) {
+                    return false; // Ignore old color failures for Phase 1
+                }
+                return true;
+            });
+
+            if (activeReasons.length > 0) {
+                fullPrompt += `\n\n[CRITICAL WARNING: PAST FAILURES]\nThis page has failed previously. You MUST avoid the following errors:\n`;
+                activeReasons.forEach(f => fullPrompt += `- ${f}\n`);
+                fullPrompt += `PAY EXTRA ATTENTION TO THESE SPECIFIC ISSUES.`;
+                console.error(`DEBUG - Injected ${activeReasons.length} past failure(s) into prompt.`);
+            }
         }
         
         // Use failed Phase 2 image as "Layout Reference" if available
