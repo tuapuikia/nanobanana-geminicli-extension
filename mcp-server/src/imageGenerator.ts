@@ -855,8 +855,9 @@ export class ImageGenerator {
 
                 if (b64) {
                     const dir = path.dirname(imagePath);
-                    const baseName = path.basename(imagePath, '.png');
-                    const newFileName = `${baseName}_final.png`;
+                    // Strip _phase_1 and any extension to get clean base
+                    const cleanBase = path.basename(imagePath, '.png').replace(/_phase_1$/, '');
+                    const newFileName = `${cleanBase}_final.png`;
                     const newPath = path.join(dir, newFileName);
                     await FileHandler.saveImageFromBase64(b64, dir, newFileName);
                     
@@ -2360,26 +2361,21 @@ export class ImageGenerator {
         const filenamePrompt = `manga ${page.header}`;
         const baseName = FileHandler.getSanitizedBaseName(filenamePrompt);
         
-        // In Two-Phase mode, only skip if the FINAL version exists.
-        // In Single-Phase mode, check for the standard version.
-        const resumeSearchName = request.twoPhase ? `${baseName}_final` : baseName;
-        const existingPage = FileHandler.findLatestFile(resumeSearchName);
+        const latestFile = FileHandler.findLatestFile(baseName);
 
         // Only skip if NOT explicitly requested via --page
-        if (!request.page && existingPage) {
-            console.error(`DEBUG - Final file already exists: ${existingPage}. Skipping generation (Resume Mode).`);
-            previousPagePath = existingPage;
-            generatedFiles.push(existingPage);
+        if (!request.page && latestFile && latestFile.includes('_final')) {
+            console.error(`DEBUG - Final file already exists: ${latestFile}. Skipping generation (Resume Mode).`);
+            previousPagePath = latestFile;
+            generatedFiles.push(latestFile);
             continue;
         }
 
         // Phase 1 Art Resume Check
         let existingArtPath: string | null = null;
-        if (request.twoPhase && !request.page) {
-            existingArtPath = FileHandler.findLatestFile(`${baseName}_phase_1`);
-            if (existingArtPath) {
-                console.error(`DEBUG - Found existing Phase 1 art: ${existingArtPath}. Resuming from Phase 2.`);
-            }
+        if (request.twoPhase && !request.page && latestFile && latestFile.includes('_phase_1')) {
+            existingArtPath = latestFile;
+            console.error(`DEBUG - Found existing Phase 1 art: ${existingArtPath}. Resuming from Phase 2.`);
         }
 
         // Resolve Previous Page Reference (Logic for Continuity)

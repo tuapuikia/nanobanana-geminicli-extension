@@ -154,13 +154,12 @@ export class FileHandler {
     try {
       const files = fs.readdirSync(outputPath);
       
-      // Filter files that match the baseName pattern EXACTLY or with suffix
-      // Strict regex: ^baseName(_\d+|_final)?\.(png|jpg|jpeg)$
+      // Flexible regex: matches baseName followed by any combination of suffixes
       const escapedBaseName = baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(`^${escapedBaseName}((_\\d+)|(_final))?\\.(png|jpg|jpeg)$`, 'i');
+      const regex = new RegExp(`^${escapedBaseName}(_phase_1|_final|_\\d+)*\\.(png|jpg|jpeg)$`, 'i');
 
       const matches = files.filter((file: string) => regex.test(file));
-
+      
       if (matches.length === 0) {
         return null;
       }
@@ -170,10 +169,12 @@ export class FileHandler {
         const fullPath = path.join(outputPath, file);
         return {
           path: fullPath,
+          name: file,
           mtime: fs.statSync(fullPath).mtime.getTime()
         };
       }).sort((a: { mtime: number }, b: { mtime: number }) => b.mtime - a.mtime);
 
+      console.error(`DEBUG - findLatestFile(${baseName}) found ${matches.length} matches. Newest: ${sortedMatches[0].name}`);
       return sortedMatches[0].path;
     } catch (error) {
       console.error('Error searching for latest file:', error);
