@@ -872,7 +872,8 @@ export class ImageGenerator {
         3. **Lettering**: Render ALL dialogue and captions into the bubbles/boxes. Use professional manga lettering style. Ensure text is centered and legible.
         4. **Verification**: EVERY line of dialogue and EVERY caption from the script MUST be present.
         5. **NO HALLUCINATIONS**: Do NOT add any random text, gibberish, or text not found in the script. All text in the image must come strictly from the provided story script. Check for typos.
-        6. **CLEANUP & DEDUPLICATION**: The input art might contain "ghost" bubbles, faint text, or artifacts from the drawing phase. You MUST COVER or OVERPAINT these with your new, correct bubbles or artwork edits. Ensure there is NO DUPLICATE TEXT (e.g., the same line appearing twice). The final image must only contain the clean, sharp text from the script.`;
+        6. **CLEANUP & DEDUPLICATION**: The input art might contain "ghost" bubbles, faint text, or artifacts from the drawing phase. You MUST COVER or OVERPAINT these with your new, correct bubbles or artwork edits. Ensure there is NO DUPLICATE TEXT (e.g., the same line appearing twice). The final image must only contain the clean, sharp text from the script.
+        7. **NO METADATA**: Do NOT write the Page Number or Page Title ("${pageHeader}") anywhere on the image. Only the dialogue and narrative captions from the script.`;
 
         if (isColor) {
             prompt += `
@@ -2662,7 +2663,9 @@ Use the attached images as strict visual references.
    - If a character's design was established in a previous page, you must infer their consistent look from the story context provided, but the Character Sheet always overrides everything regarding physical identity.
 2. **Environments**: The attached "Far View" image is your STRICT VISUAL ANCHOR. Use it to establish the room's layout, furniture placement, and atmosphere. Maintain this location's design exactly.
 3. **Continuity**: If a "Previous Page reference" is attached, you MUST ensure seamless continuity. The placement of objects and characters must logically follow the previous panel. Do not teleport furniture.
-4. **Text & Bubbles**: ${request.twoPhase ? 'DO NOT generate any round speech bubbles. (Rectangular captions, sound effects, and background text are PERMITTED. Only dialogue speech bubbles are forbidden.)' : `Do NOT render the page title ("${page.header.replace(/^[#\s]+/, '')}") as text in the image. You MAY render narrative captions if they are explicitly part of the panel description (e.g. "Caption: ..."), but never the page header itself.`}`;
+4. **Text & Bubbles**: 
+   - **NO TITLE TEXT**: Do NOT render the page header ("${page.header.replace(/^[#\s]+/, '')}") as text in the image.
+   ${request.twoPhase ? '- **NO SPEECH BUBBLES**: DO NOT generate any round speech bubbles. (Rectangular captions, sound effects, and background text are PERMITTED. Only dialogue speech bubbles are forbidden.)' : `- Do NOT render the page title as text. You MAY render narrative captions if they are explicitly part of the panel description (e.g. "Caption: ...").`}`;
         
         // Color & Style Mandates
         if (request.twoPhase) {
