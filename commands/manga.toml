@@ -23,9 +23,9 @@ User input: {{args}}
 
 Parse this input and follow these steps IN ORDER:
 
-1. **Check for "one phase", "single phase", or "1 phase" patterns.**
-   - If found, set two_phase=false.
-   - Otherwise, default two_phase=true.
+1. **Check for "two phase", "multi phase", or "2 phase" patterns.**
+   - If found, set two_phase=true.
+   - Otherwise, default two_phase=false.
 
 2. **Check for "generate environment", "generate environments", "gen envs", or "auto generate environments" patterns.**
    - If found:
@@ -63,7 +63,10 @@ Parse this input and follow these steps IN ORDER:
 3. **(Standard Logic) If neither of the above matched fully:**
      - Extract the main prompt (text before any options, optional description).
      - Check if the first word of the prompt looks like a file path (e.g., ends in .md, .txt, or starts with @).
-       - If YES: Treat it as the story file path (remove @ prefix if present) and set it as the story_file parameter.
+       - If YES: 
+         - Treat it as the story file path (remove @ prefix if present) and set it as the story_file parameter.
+         - Check if the SECOND word of the prompt looks like an image file path (ends in .png, .jpg, .jpeg, .webp).
+           - If YES: Set it as the character_image parameter.
      - Extract the story file path (--file), input image path (--image), or input directory (--dir) if not already extracted.
 
 4. Check for natural language patterns specifying a specific page or pages, such as "page 3", "pages 1, 2", "page 1 and 3", "fix page 3", or "regen page 2". If found, extract the page identifiers (e.g., "3", "1, 2", "1, 3") and set it as the page parameter. Ensure this is extracted even if other options like "with color" are present.

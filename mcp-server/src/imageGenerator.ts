@@ -25,7 +25,7 @@ export class ImageGenerator {
   private modelName: string;
   private artModel: string;
   private textModel: string;
-  private static readonly DEFAULT_MODEL = 'gemini-3-pro-image-preview';
+  private static readonly DEFAULT_MODEL = 'gemini-2.5-flash-image';
   private static readonly DEFAULT_TEXT_MODEL = 'gemini-3-pro-image-preview';
 
   constructor(authConfig: AuthConfig) {
@@ -2682,7 +2682,7 @@ Use the attached images as strict visual references.
              fullPrompt += "\n\n[STRICT COLOR MANDATE]\nGENERATE THIS PAGE IN FULL COLOR. You MUST match the EXACT color palette (hair, skin tone, eyes, clothing) from the attached Reference Images. Do not shift hues or saturation. IGNORE ANY PREVIOUS 'BLACK AND WHITE' INSTRUCTIONS.";
         } else {
              // Single Phase + B&W
-             fullPrompt += "\n\n[STYLE MANDATE]\nGENERATE THIS PAGE IN BLACK AND WHITE. Professional manga style.";
+             fullPrompt += "\n\n[STYLE MANDATE]\nGENERATE THIS PAGE IN BLACK AND WHITE. Use professional manga line art, screentones, and traditional shading. NO COLOR. Focus on composition and linework.";
         }
 
         if (request.twoPhase) {

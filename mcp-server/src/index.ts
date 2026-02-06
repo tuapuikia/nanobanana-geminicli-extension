@@ -517,8 +517,8 @@ class NanoBananaServer {
                 },
                 two_phase: {
                   type: 'boolean',
-                  description: 'Use two-phase generation: Art (2.5) then Text (3.0). Enabled by default.',
-                  default: true,
+                  description: 'Use two-phase generation: Art then Text. Disabled by default.',
+                  default: false,
                 },
               },
               required: [],
@@ -682,7 +682,7 @@ class NanoBananaServer {
               minLettering: args?.min_lettering as number,
               minNoBubbles: args?.min_no_bubbles as number,
               retryCount: args?.retry_count as number,
-              twoPhase: args?.two_phase !== undefined ? (args?.two_phase as boolean) : true,
+              twoPhase: args?.two_phase !== undefined ? (args?.two_phase as boolean) : false,
             };
             response = await this.imageGenerator.generateMangaPage(mangaRequest);
             break;
