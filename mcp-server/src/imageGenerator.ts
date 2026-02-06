@@ -2592,8 +2592,8 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
             let fullPath = "";
             let imageSaved = false;
 
-            // Phase 1 Resume Logic: Use existing art if available on first attempt
-            if (attempt === 1 && existingArtPath) {
+            // Phase 1 Resume Logic: Use existing art if available (even on retries)
+            if (existingArtPath) {
                 fullPath = existingArtPath;
                 imageSaved = true;
                 const msg = `Resuming ${page.header} using existing Phase 1 art: ${existingArtPath}`;
