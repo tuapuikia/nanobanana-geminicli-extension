@@ -23,6 +23,7 @@ export class ImageGenerator {
   private ai: GoogleGenAI;
   private modelName: string;
   private static readonly DEFAULT_MODEL = 'gemini-2.5-flash-image';
+  private static readonly DEFAULT_TEXT_MODEL = 'gemini-3-pro-image-preview';
 
   constructor(authConfig: AuthConfig) {
     this.ai = new GoogleGenAI({
@@ -760,6 +761,68 @@ export class ImageGenerator {
     } catch (error) {
         console.error('DEBUG - Auto-review failed (error calling model):', error);
         return { pass: true, score: 0, reason: "Review failed to execute." };
+    }
+  }
+
+  private async addTextToMangaPage(
+    imagePath: string,
+    storyContent: string,
+    pageHeader: string
+  ): Promise<string> {
+    console.error(`DEBUG - Phase 2: Adding text to ${pageHeader} using ${ImageGenerator.DEFAULT_TEXT_MODEL}...`);
+    
+    try {
+        const imageB64 = await FileHandler.readImageAsBase64(imagePath);
+        
+        const prompt = `You are a professional manga letterer. 
+        Task: Add the dialogue and captions from the provided story script onto the attached manga page.
+        
+        STORY SCRIPT FOR ${pageHeader}:
+        "${storyContent}"
+        
+        INSTRUCTIONS:
+        1. Read the attached manga page and identify the empty speech bubbles and caption boxes.
+        2. Correcty place the dialogue from the script into the appropriate bubbles.
+        3. Match the font style and size to professional manga standards.
+        4. Ensure text is centered and legible within the bubbles.
+        5. DO NOT change any art, characters, or backgrounds. Only add text.
+        6. Return the final image with text included.`;
+
+        const response = await this.ai.models.generateContent({
+            model: ImageGenerator.DEFAULT_TEXT_MODEL,
+            config: {
+                responseModalities: ['IMAGE'],
+                safetySettings: this.getSafetySettings(),
+            } as any,
+            contents: [{ 
+                role: 'user', 
+                parts: [
+                    { text: prompt },
+                    { inlineData: { data: imageB64, mimeType: 'image/png' } }
+                ] 
+            }],
+        });
+
+        if (response.candidates && response.candidates[0]?.content?.parts) {
+            for (const part of response.candidates[0].content.parts) {
+                let b64: string | undefined;
+                if (part.inlineData?.data) b64 = part.inlineData.data;
+                else if (part.text && this.isValidBase64ImageData(part.text)) b64 = part.text;
+
+                if (b64) {
+                    const dir = path.dirname(imagePath);
+                    const baseName = path.basename(imagePath, '.png');
+                    const newPath = path.join(dir, `${baseName}_final.png`);
+                    await FileHandler.saveImageFromBase64(b64, dir, `${baseName}_final.png`);
+                    console.error(`DEBUG - Phase 2 SUCCESS: Saved final image to ${newPath}`);
+                    return newPath;
+                }
+            }
+        }
+        throw new Error("No image data returned from text model");
+    } catch (error) {
+        console.error(`DEBUG - Phase 2 FAILED:`, error);
+        throw error;
     }
   }
 
@@ -2310,6 +2373,15 @@ Use the attached images as strict visual references.
             fullPrompt += "\n\n[STRICT COLOR MANDATE]\nGENERATE THIS PAGE IN FULL COLOR. You MUST match the EXACT color palette (hair, skin tone, eyes, clothing) from the attached Reference Images. Do not shift hues or saturation. IGNORE ANY PREVIOUS 'BLACK AND WHITE' INSTRUCTIONS.";
         }
 
+        if (request.twoPhase) {
+            fullPrompt += `
+\n[TWO-PHASE GENERATION: ART PHASE]
+IMPORTANT: This is the ART PHASE. You must generate the panels and art but LEAVE THE SPEECH BUBBLES AND DIALOG BOXES EMPTY. 
+- Ensure all speech bubbles and caption boxes are clearly rendered and empty.
+- Do NOT add any text, letters, or gibberish inside the bubbles.
+- Focus entirely on character likeness, composition, and environment.`;
+        }
+
         // Prepare Message Parts
         const parts: any[] = [];
         
@@ -2469,6 +2541,17 @@ Use the attached images as strict visual references.
                         filename,
                       );
                       
+                      let finalPathForReview = fullPath;
+
+                      // Phase 2: Add Text
+                      if (request.twoPhase) {
+                          try {
+                              finalPathForReview = await this.addTextToMangaPage(fullPath, page.content, page.header);
+                          } catch (e) {
+                              console.error(`DEBUG - Phase 2 failed, falling back to Phase Art image for review.`, e);
+                          }
+                      }
+
                       // Auto-Review Step
                       const contextForReview = `Scene Prompt: ${request.prompt || ''}\nScript Content: ${page.content}`;
                       
@@ -2487,7 +2570,7 @@ Use the attached images as strict visual references.
                           }
                       }
 
-                      const review = await this.reviewGeneratedImage(fullPath, reviewRefs, {
+                      const review = await this.reviewGeneratedImage(finalPathForReview, reviewRefs, {
                         minScore: request.minScore || 8,
                         minLikeness: request.minLikeness,
                         minStory: request.minStory,
@@ -2496,10 +2579,10 @@ Use the attached images as strict visual references.
                       });
                       
                       if (review.pass) {
-                          generatedFiles.push(fullPath);
-                          await this.logGeneration(this.modelName, [fullPath]);
-                          previousPagePath = fullPath; // Update for next iteration
-                          finalGeneratedPath = fullPath;
+                          generatedFiles.push(finalPathForReview);
+                          await this.logGeneration(this.modelName, [finalPathForReview]);
+                          previousPagePath = finalPathForReview; // Update for next iteration
+                          finalGeneratedPath = finalPathForReview;
                           attemptSuccess = true;
                           imageSaved = true;
                           console.error(`DEBUG - SUCCESS: Generated ${page.header} on attempt ${attempt}. Score: ${review.score}`);
@@ -2511,7 +2594,7 @@ Use the attached images as strict visual references.
                           // Rename failed file to avoid overwrite and allow inspection
                           const failedFilename = filename.replace('.png', `_FAILED_try${attempt}.png`);
                           const failedPath = path.join(path.dirname(fullPath), failedFilename);
-                          await fs.promises.rename(fullPath, failedPath);
+                          await fs.promises.rename(finalPathForReview, failedPath);
                           console.error(`DEBUG - Renamed failed image to: ${failedFilename}`);
                           
                           // Dynamic Correction Logic

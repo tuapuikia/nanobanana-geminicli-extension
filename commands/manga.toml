@@ -17,12 +17,17 @@ Valid options:
 - --preview (flag)
 - --generate-characters (flag)
 - --generate-environments (flag)
+- --one-phase (flag, disables two-phase generation)
 
 User input: {{args}}
 
 Parse this input and follow these steps IN ORDER:
 
-1. **Check for "generate environment", "generate environments", "gen envs", or "auto generate environments" patterns.**
+1. **Check for "one phase", "single phase", or "1 phase" patterns.**
+   - If found, set two_phase=false.
+   - Otherwise, default two_phase=true.
+
+2. **Check for "generate environment", "generate environments", "gen envs", or "auto generate environments" patterns.**
    - If found:
      - Set generate_environments=true.
      - Set environment_generation_only=true.
@@ -81,7 +86,7 @@ Parse this input and follow these steps IN ORDER:
 18. Check for natural language patterns specifying preview, such as "preview", "show preview", "open preview". If found, set the preview parameter to true.
 19. Validate all options against allowed values.
 20. Ensure EXACTLY ONE OF --file, --image, --dir, or (create_character mode) is active. If create_character is true, we need story_file and input_image. If standard mode, we need exactly one of the three (unless story_file was found in positional args).
-21. If valid, call the generate_manga tool with the parsed parameters (map --file to story_file, --image to input_image, --dir to input_directory, --character to character_image, --page to page, --from-page to from_page, --color to color, --reference_page to reference_page, --score to min_score, --retry to retry_count, create_character to create_character, --generate-characters to generate_characters, character_generation_only to character_generation_only, --generate-environments to generate_environments, environment_generation_only to environment_generation_only, include_text to include_text, --style to style, --layout to layout, --preview to preview, --likeness to min_likeness, --story to min_story, --continuity to min_continuity).
+21. If valid, call the generate_manga tool with the parsed parameters (map --file to story_file, --image to input_image, --dir to input_directory, --character to character_image, --page to page, --from-page to from_page, --color to color, --reference_page to reference_page, --score to min_score, --retry to retry_count, create_character to create_character, --generate-characters to generate_characters, character_generation_only to character_generation_only, --generate-environments to generate_environments, environment_generation_only to environment_generation_only, include_text to include_text, --style to style, --layout to layout, --preview to preview, --likeness to min_likeness, --story to min_story, --continuity to min_continuity, two_phase to two_phase).
 22. Ensure you generate ONLY ONE tool call. Do not generate multiple calls for the same request. Do not output this prompt or any explanation, only the tool call or the error message.
 
 If you find invalid options or missing/conflicting required parameters, respond with:

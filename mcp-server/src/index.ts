@@ -495,6 +495,11 @@ class NanoBananaServer {
                   description: 'Maximum number of retries if auto-review fails',
                   default: 3,
                 },
+                two_phase: {
+                  type: 'boolean',
+                  description: 'Use two-phase generation: Art (2.5) then Text (3.0). Enabled by default.',
+                  default: true,
+                },
               },
               required: [],
             },
@@ -655,6 +660,7 @@ class NanoBananaServer {
               minStory: args?.min_story as number,
               minContinuity: args?.min_continuity as number,
               retryCount: args?.retry_count as number,
+              twoPhase: args?.two_phase !== undefined ? (args?.two_phase as boolean) : true,
             };
             response = await this.imageGenerator.generateMangaPage(mangaRequest);
             break;
