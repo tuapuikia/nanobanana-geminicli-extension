@@ -697,7 +697,7 @@ export class ImageGenerator {
         ${isColor ? `- [CONDITIONAL] COLOR CONSISTENCY: 
            - EXCEPTION FOR PHASE 1: IGNORE ALL COLOR MISMATCHES. If the image is B&W, Sepia, or wrong colors, DO NOT PENALIZE. Assume Phase 2 will handle all colorization.
            - FOR PHASE 2: Compare hair/eye/costume colors. If the Character Reference is B&W, IGNORE color differences. If the Reference IS Color, strict consistency is required (likeness_score < 60% if mismatched).` : 
-           '- [STRICT] COLOR: If the image is in Color despite "TARGET FORMAT: BLACK AND WHITE", the story_score MUST be below 50%.'}
+           '- [LENIENT] COLOR: If the image is in Color despite "TARGET FORMAT: BLACK AND WHITE", DO NOT FAIL. Use your judgment: if the color looks good and matches the scene, ACCEPT IT. Only penalize story_score (max -10%) if the color actively ruins the mood.'}
         - [STRICT] PANEL LAYOUT: Count the panels. If the script asks for a 3-panel stack but the image is a single splash, the story_score MUST be below 50%.
         - If the visual style (shading/art style) clashes with the "Previous Page Reference" (IGNORING Color vs B&W differences in Phase 1), the continuity_score MUST be below 80%.
         - [STRICT] FACIAL IDENTITY: Compare the eyes, nose, and jawline. If it looks like a different person from the Character Reference, the likeness_score MUST be below 60%.
@@ -882,7 +882,9 @@ export class ImageGenerator {
            - Ensure consistent color palettes across the entire page.`;
         } else {
             prompt += `
-        5. **Maintain Style**: The attached page art is in Black and White. Keep the final output in professional Black and White manga style (screentones, ink, etc.). Do NOT add any color.`;
+        5. **Maintain Style**: The attached page art is in Black and White. Keep the final output in professional Black and White manga style (screentones, ink, etc.). 
+           - **STRICTLY BLACK AND WHITE**: Do NOT add any color. Even if the attached Reference Images are in color, you MUST convert them to Black & White/Grayscale for this page.
+           - The final image must look like a printed manga page (Ink on Paper).`;
         }
 
         prompt += `
