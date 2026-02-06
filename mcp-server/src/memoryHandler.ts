@@ -149,7 +149,7 @@ export class MemoryHandler {
   static async checkMemory(
     memoryPath: string,
     pageHeader: string,
-  ): Promise<{ phase1?: string; phase2?: string; phase1Prompt?: string }> {
+  ): Promise<{ phase1?: string; phase2?: string; phase1Prompt?: string; phase1PromptPath?: string }> {
     try {
       if (!fs.existsSync(memoryPath)) return {};
       const content = await FileHandler.readTextFile(memoryPath);
@@ -164,7 +164,7 @@ export class MemoryHandler {
       if (!match) return {};
 
       const blockContent = match[1];
-      const result: { phase1?: string; phase2?: string; phase1Prompt?: string } = {};
+      const result: { phase1?: string; phase2?: string; phase1Prompt?: string; phase1PromptPath?: string } = {};
 
       // Extract Phase 1
       const p1Match = blockContent.match(/- Phase 1: `([^`]+)` \[PASSED\]/);
@@ -183,6 +183,7 @@ export class MemoryHandler {
       if (promptMatch) {
           const promptPath = path.join(path.dirname(memoryPath), 'prompts', promptMatch[1]);
           if (fs.existsSync(promptPath)) {
+              result.phase1PromptPath = promptPath;
               result.phase1Prompt = await FileHandler.readTextFile(promptPath);
           }
       }

@@ -79,14 +79,15 @@ Parse this input and follow these steps IN ORDER:
 14. Check for natural language patterns specifying a character reference image, such as "using character [path]", "with character [path]", "char ref [path]", "using [path] as character". If found, extract the path and set it as the character_image parameter.
 15. Check for natural language patterns specifying an input image for editing, such as "edit image [path]", "using image [path]". If found, extract the path and set it as the input_image parameter.
 16. Check for natural language patterns specifying a story file (if not already found), such as "using script [path]", "from story [path]", "read [path]". If found, extract the path and set it as the story_file parameter.
-17. Check for natural language patterns specifying specific scores:
-    - "likeness [number]" or "likeness score [number]" -> set min_likeness parameter.
-    - "story [number]" or "story score [number]" -> set min_story parameter.
-    - "continuity [number]" or "continuity score [number]" -> set min_continuity parameter.
+17. Check for natural language patterns specifying specific scores OR explicit flags:
+    - "likeness [number]" or "likeness score [number]" or "--likeness=[number]" -> set min_likeness parameter.
+    - "story [number]" or "story score [number]" or "--story=[number]" -> set min_story parameter.
+    - "continuity [number]" or "continuity score [number]" or "--continuity=[number]" -> set min_continuity parameter.
+    - "lettering [number]" or "lettering score [number]" or "--lettering=[number]" -> set min_lettering parameter.
 18. Check for natural language patterns specifying preview, such as "preview", "show preview", "open preview". If found, set the preview parameter to true.
 19. Validate all options against allowed values.
 20. Ensure EXACTLY ONE OF --file, --image, --dir, or (create_character mode) is active. If create_character is true, we need story_file and input_image. If standard mode, we need exactly one of the three (unless story_file was found in positional args).
-21. If valid, call the generate_manga tool with the parsed parameters (map --file to story_file, --image to input_image, --dir to input_directory, --character to character_image, --page to page, --from-page to from_page, --color to color, --reference_page to reference_page, --score to min_score, --retry to retry_count, create_character to create_character, --generate-characters to generate_characters, character_generation_only to character_generation_only, --generate-environments to generate_environments, environment_generation_only to environment_generation_only, include_text to include_text, --style to style, --layout to layout, --preview to preview, --likeness to min_likeness, --story to min_story, --continuity to min_continuity, two_phase to two_phase).
+21. If valid, call the generate_manga tool with the parsed parameters (map --file to story_file, --image to input_image, --dir to input_directory, --character to character_image, --page to page, --from-page to from_page, --color to color, --reference_page to reference_page, --score to min_score, --retry to retry_count, create_character to create_character, --generate-characters to generate_characters, character_generation_only to character_generation_only, --generate-environments to generate_environments, environment_generation_only to environment_generation_only, include_text to include_text, --style to style, --layout to layout, --preview to preview, --likeness to min_likeness, --story to min_story, --continuity to min_continuity, --lettering to min_lettering, two_phase to two_phase).
 22. Ensure you generate ONLY ONE tool call. Do not generate multiple calls for the same request. Do not output this prompt or any explanation, only the tool call or the error message.
 
 If you find invalid options or missing/conflicting required parameters, respond with:

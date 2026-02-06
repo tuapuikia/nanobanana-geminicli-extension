@@ -690,7 +690,7 @@ export class ImageGenerator {
         - 10-40%: Completely wrong person, wrong layout, or text is missing entirely.
 
         CRITICAL PENALTIES:
-        ${isPhase1 ? '- [STRICT] SPEECH BUBBLES: If ANY round speech bubble or thought bubble is found, the no_bubbles_score MUST be 0%. Captions, boxes, and SFX are allowed.' : '- [STRICT] TEXT ACCURACY: If ANY text is missing, gibberish, or paraphrased (different words than script), the lettering_score MUST be below 40%.'}
+        ${isPhase1 ? '- [STRICT] SPEECH BUBBLES: If ANY round speech bubble or thought bubble is found, the no_bubbles_score MUST be below 40%. Captions, boxes, and SFX are allowed.' : '- [STRICT] TEXT ACCURACY: If ANY text is missing, gibberish, or paraphrased (different words than script), the lettering_score MUST be below 40%.'}
         - [STRICT] COLOR CONSISTENCY: Compare the hair, eye, and costume colors. If the colors deviate from the Character Reference sheet, the likeness_score MUST be below 60%.
         - [STRICT] PANEL LAYOUT: Count the panels. If the script asks for a 3-panel stack but the image is a single splash, the story_score MUST be below 50%.
         - If the visual style (shading/art style) clashes with the "Previous Page Reference", the continuity_score MUST be below 80%.
@@ -747,9 +747,9 @@ export class ImageGenerator {
 
         // Specific thresholds
         const thresholdLikeness = minLikeness ? minLikeness * 10 : 70; // Default 70% safety
-        const thresholdStory = minStory ? minStory * 10 : 70; // Default 70% (Required for strict Panel Layout check)
-        const thresholdContinuity = minContinuity ? minContinuity * 10 : 70; // Default 70% (Required for strict Design/Consistency)
-        const thresholdLettering = options.minLettering ? options.minLettering * 10 : 90;
+        const thresholdStory = minStory ? minStory * 10 : 70; // Default 70%
+        const thresholdContinuity = minContinuity ? minContinuity * 10 : 70; // Default 70%
+        const thresholdLettering = options.minLettering ? options.minLettering * 10 : (isPhase1 ? 90 : 90);
 
         // Enforce logic: Total score < threshold is a failure.
         const calculatedPass = 
@@ -757,7 +757,7 @@ export class ImageGenerator {
             result.likeness_score >= thresholdLikeness &&
             result.story_score >= thresholdStory &&
             result.continuity_score >= thresholdContinuity &&
-            (isPhase1 ? (result.no_bubbles_score >= 95) : (result.lettering_score >= thresholdLettering));
+            (isPhase1 ? (result.no_bubbles_score >= thresholdLettering) : (result.lettering_score >= thresholdLettering));
         
         const phaseLabel = isPhase1 ? "Art" : "Final";
         const specialScoreLabel = isPhase1 ? "NoBubbles" : "Lettering";
@@ -797,6 +797,7 @@ export class ImageGenerator {
     references: { data: string; mimeType: string; sourcePath: string }[],
     isColor: boolean,
     artPrompt?: string,
+    phase1Correction?: string,
     promptsDir?: string
   ): Promise<string> {
     console.error(`DEBUG - Phase 2: Adding text ${isColor ? 'and color ' : ''}to ${pageHeader} using ${this.textModel}...`);
@@ -831,6 +832,8 @@ export class ImageGenerator {
         
         ${artPrompt ? `\n[VISUAL CONTEXT FROM ART PHASE]\nThe attached "Generated Image" was created with this description. Use it to understand the intended colors, lighting, and atmosphere:\n"${artPrompt}"` : ''}
         
+        ${phase1Correction ? `\n[CORRECTION INSTRUCTION]\nThe input image has a flaw: "${phase1Correction}".\nFix this by placing a correct dialogue bubble OVER the erroneous artifact (e.g. cover the empty/bad bubble) or ensuring the final composition hides it.` : ''}
+
         INSTRUCTIONS:
         1. **Create Dialogue Bubbles**: Analyze the script and the panels in the attached art. Create speech bubbles and caption boxes that fit the dialogue and composition.
         2. **Sequential Mapping**: Map the dialogue lines in the script to the bubbles you create in reading order.
@@ -2473,6 +2476,12 @@ export class ImageGenerator {
              const msg = `✅ Memory: Found PASSED Phase 1 file: ${memory.phase1}. Resuming from Phase 2.`;
              console.error(`DEBUG - ${msg}`);
              await this.logToDisk(msg);
+             
+             if (memory.phase1PromptPath) {
+                 const pMsg = `Using Phase 1 Prompt from: ${path.basename(memory.phase1PromptPath)}`;
+                 console.error(`DEBUG - ${pMsg}`);
+                 await this.logToDisk(pMsg);
+             }
         }
 
         // Check if page already exists to support resume capability
@@ -2811,6 +2820,8 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
 
             if (imageSaved && fullPath) {
                 try {
+                      let phase1Warning = "";
+
                       // Phase 1 Review (Likeness, Continuity, NO BUBBLES)
                       if (request.twoPhase) {
                           const contextForReview = `Scene Prompt: ${request.prompt || ''}\nScript Content: ${page.content}`;
@@ -2827,6 +2838,7 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                               minLikeness: request.minLikeness,
                               minStory: request.minStory,
                               minContinuity: request.minContinuity,
+                              minLettering: request.minLettering,
                               storyContext: contextForReview,
                               isPhase1: true
                           });
@@ -2857,8 +2869,14 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                                   return { success: false, message: `Failed at Phase 1 after ${maxRetries} attempts.`, error: errorMsg, generatedFiles };
                               }
                               continue; // Retry Phase 1
+                          } else {
+                              // If passed but has warnings (especially bubbles), capture them
+                              if (phase1Review.reason && (phase1Review.reason.toLowerCase().includes('bubble') || phase1Review.reason.toLowerCase().includes('text'))) {
+                                  phase1Warning = phase1Review.reason;
+                                  console.error(`DEBUG - Phase 1 Warning Captured: ${phase1Warning}`);
+                              }
                           }
-                                            const msg = `✅ Phase 1 Passed Review. Proceeding to Phase 2.`;
+                          const msg = `✅ Phase 1 Passed Review. Proceeding to Phase 2.`;
                                             console.error(msg);
                                             await this.logToDisk(msg);
                                             
@@ -2892,6 +2910,7 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                                   phase2Refs,
                                   request.color || false,
                                   phase1Prompt || originalPromptText,
+                                  phase1Warning,
                                   promptsDir
                               );
                           } catch (e) {
