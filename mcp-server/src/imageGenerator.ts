@@ -2470,7 +2470,7 @@ export class ImageGenerator {
 
         // Check Phase 1 Memory
         let phase1Prompt: string | undefined = undefined;
-        if (request.twoPhase && !request.page && memory.phase1) {
+        if (request.twoPhase && memory.phase1) {
              existingArtPath = memory.phase1;
              phase1Prompt = memory.phase1Prompt;
              const msg = `✅ Memory: Found PASSED Phase 1 file: ${memory.phase1}. Resuming from Phase 2.`;
@@ -2479,6 +2479,10 @@ export class ImageGenerator {
              
              if (memory.phase1PromptPath) {
                  const pMsg = `Using Phase 1 Prompt from: ${path.basename(memory.phase1PromptPath)}`;
+                 console.error(`DEBUG - ${pMsg}`);
+                 await this.logToDisk(pMsg);
+             } else {
+                 const pMsg = "Phase 1 Prompt file not found in memory. (Regenerate Phase 1 to fix this)";
                  console.error(`DEBUG - ${pMsg}`);
                  await this.logToDisk(pMsg);
              }
