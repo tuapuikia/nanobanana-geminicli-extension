@@ -641,6 +641,7 @@ export class ImageGenerator {
         minStory?: number;
         minContinuity?: number;
         minLettering?: number;
+        minNoBubbles?: number;
         storyContext?: string;
         isPhase1?: boolean;
     } = { minScore: 8 }
@@ -690,7 +691,7 @@ export class ImageGenerator {
         - 10-40%: Completely wrong person, wrong layout, or text is missing entirely.
 
         CRITICAL PENALTIES:
-        ${isPhase1 ? '- [STRICT] SPEECH BUBBLES: If ANY round speech bubble or thought bubble is found, the no_bubbles_score MUST be below 40%. Captions, boxes, and SFX are allowed.' : '- [STRICT] TEXT ACCURACY: If ANY text is missing, gibberish, or paraphrased (different words than script), the lettering_score MUST be below 40%.'}
+        ${isPhase1 ? '- [STRICT] SPEECH BUBBLES: If ANY round speech bubble or thought bubble is found, the no_bubbles_score MUST be below 40%. Captions, boxes, and SFX are allowed.' : '- [STRICT] TEXT ACCURACY: If ANY text is missing, gibberish, or paraphrased (different words than script), the lettering_score MUST be below 40%.\n        - [STRICT] NO DUPLICATES: If the same line of dialogue appears twice (e.g. once in a good bubble, once in a bad/ghost bubble), the lettering_score MUST be below 60%.'}
         - [STRICT] COLOR CONSISTENCY: Compare the hair, eye, and costume colors. If the colors deviate from the Character Reference sheet, the likeness_score MUST be below 60%.
         - [STRICT] PANEL LAYOUT: Count the panels. If the script asks for a 3-panel stack but the image is a single splash, the story_score MUST be below 50%.
         - If the visual style (shading/art style) clashes with the "Previous Page Reference", the continuity_score MUST be below 80%.
@@ -749,7 +750,9 @@ export class ImageGenerator {
         const thresholdLikeness = minLikeness ? minLikeness * 10 : 70; // Default 70% safety
         const thresholdStory = minStory ? minStory * 10 : 70; // Default 70%
         const thresholdContinuity = minContinuity ? minContinuity * 10 : 70; // Default 70%
-        const thresholdLettering = options.minLettering ? options.minLettering * 10 : (isPhase1 ? 90 : 90);
+        const thresholdLettering = isPhase1 
+            ? (options.minNoBubbles ? options.minNoBubbles * 10 : (options.minLettering ? options.minLettering * 10 : 50))
+            : (options.minLettering ? options.minLettering * 10 : 95);
 
         // Enforce logic: Total score < threshold is a failure.
         const calculatedPass = 
@@ -763,7 +766,7 @@ export class ImageGenerator {
         const specialScoreLabel = isPhase1 ? "NoBubbles" : "Lettering";
         const specialScoreValue = isPhase1 ? result.no_bubbles_score : result.lettering_score;
 
-        const logMsg = `[Auto-Review ${phaseLabel}] Model: ${this.textModel}. Total: ${result.total_score}/400% (Likeness: ${result.likeness_score}%, Continuity: ${result.continuity_score}%, Story: ${result.story_score}%, ${specialScoreLabel}: ${specialScoreValue}%). Threshold: ${scoreThreshold}% & Likeness >= ${thresholdLikeness}% & ${specialScoreLabel} >= ${isPhase1 ? 95 : thresholdLettering}%. Pass: ${calculatedPass}. Reason: ${result.reason}`;
+        const logMsg = `[Auto-Review ${phaseLabel}] Model: ${this.textModel}. Total: ${result.total_score}/400% (Likeness: ${result.likeness_score}%, Continuity: ${result.continuity_score}%, Story: ${result.story_score}%, ${specialScoreLabel}: ${specialScoreValue}%). Threshold: ${scoreThreshold}% & Likeness >= ${thresholdLikeness}% & ${specialScoreLabel} >= ${thresholdLettering}%. Pass: ${calculatedPass}. Reason: ${result.reason}`;
         console.error(`DEBUG - ${logMsg}`);
         
         // Log to file
@@ -846,7 +849,8 @@ export class ImageGenerator {
         2. **Sequential Mapping**: Map the dialogue lines in the script to the bubbles you create in reading order.
         3. **Lettering**: Render ALL dialogue and captions into the bubbles/boxes. Use professional manga lettering style. Ensure text is centered and legible.
         4. **Verification**: EVERY line of dialogue and EVERY caption from the script MUST be present.
-        5. **NO HALLUCINATIONS**: Do NOT add any random text, gibberish, or text not found in the script. All text in the image must come strictly from the provided story script. Check for typos.`;
+        5. **NO HALLUCINATIONS**: Do NOT add any random text, gibberish, or text not found in the script. All text in the image must come strictly from the provided story script. Check for typos.
+        6. **CLEANUP & DEDUPLICATION**: The input art might contain "ghost" bubbles, faint text, or artifacts from the drawing phase. You MUST COVER or OVERPAINT these with your new, correct bubbles or artwork edits. Ensure there is NO DUPLICATE TEXT (e.g., the same line appearing twice). The final image must only contain the clean, sharp text from the script.`;
 
         if (isColor) {
             prompt += `
@@ -2853,6 +2857,7 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                               minStory: request.minStory,
                               minContinuity: request.minContinuity,
                               minLettering: request.minLettering,
+                              minNoBubbles: request.minNoBubbles,
                               storyContext: contextForReview,
                               isPhase1: true
                           });

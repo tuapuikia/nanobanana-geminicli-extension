@@ -490,6 +490,26 @@ class NanoBananaServer {
                   description: 'Minimum score (1-10) required for auto-review to pass',
                   default: 8,
                 },
+                min_likeness: {
+                  type: 'number',
+                  description: 'Minimum likeness score required',
+                },
+                min_story: {
+                  type: 'number',
+                  description: 'Minimum story accuracy score required',
+                },
+                min_continuity: {
+                  type: 'number',
+                  description: 'Minimum continuity score required',
+                },
+                min_lettering: {
+                  type: 'number',
+                  description: 'Minimum lettering score required (Phase 2)',
+                },
+                min_no_bubbles: {
+                  type: 'number',
+                  description: 'Minimum no-bubbles score required (Phase 1)',
+                },
                 retry_count: {
                   type: 'number',
                   description: 'Maximum number of retries if auto-review fails',
@@ -660,6 +680,7 @@ class NanoBananaServer {
               minStory: args?.min_story as number,
               minContinuity: args?.min_continuity as number,
               minLettering: args?.min_lettering as number,
+              minNoBubbles: args?.min_no_bubbles as number,
               retryCount: args?.retry_count as number,
               twoPhase: args?.two_phase !== undefined ? (args?.two_phase as boolean) : true,
             };
