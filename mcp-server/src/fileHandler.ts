@@ -98,7 +98,7 @@ export class FileHandler {
       .toLowerCase()
       .replace(/[^a-z0-9\s]/g, '') // Remove special characters
       .replace(/\s+/g, '_') // Replace spaces with underscores
-      .substring(0, 32); // Limit to 32 characters
+      .substring(0, 64); // Limit to 64 characters
 
     if (!baseName) {
       baseName = 'generated_image';
@@ -155,11 +155,9 @@ export class FileHandler {
       const files = fs.readdirSync(outputPath);
       
       // Filter files that match the baseName pattern EXACTLY or with suffix
-      // Strict regex: ^baseName(_\d+)?\.(png|jpg|jpeg)$
-      // We need to escape special regex chars in baseName just in case, 
-      // though generateFilename cleans them.
+      // Strict regex: ^baseName(_\d+|_final)?\.(png|jpg|jpeg)$
       const escapedBaseName = baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(`^${escapedBaseName}(_\\d+)?\\.(png|jpg|jpeg)$`, 'i');
+      const regex = new RegExp(`^${escapedBaseName}((_\\d+)|(_final))?\\.(png|jpg|jpeg)$`, 'i');
 
       const matches = files.filter((file: string) => regex.test(file));
 

@@ -2359,18 +2359,27 @@ export class ImageGenerator {
         // Check if page already exists to support resume capability
         const filenamePrompt = `manga ${page.header}`;
         const baseName = FileHandler.getSanitizedBaseName(filenamePrompt);
-        // We assume 'png' as per generateFilename usage later in the loop
-        const expectedFilename = `${baseName}.png`;
-        const outputPath = FileHandler.ensureOutputDirectory();
-        const fullExpectedPath = path.join(outputPath, expectedFilename);
+        
+        // In Two-Phase mode, only skip if the FINAL version exists.
+        // In Single-Phase mode, check for the standard version.
+        const resumeSearchName = request.twoPhase ? `${baseName}_final` : baseName;
+        const existingPage = FileHandler.findLatestFile(resumeSearchName);
 
         // Only skip if NOT explicitly requested via --page
-        const existingPage = FileHandler.findLatestFile(baseName);
         if (!request.page && existingPage) {
-            console.error(`DEBUG - File already exists: ${existingPage}. Skipping generation (Resume Mode).`);
+            console.error(`DEBUG - Final file already exists: ${existingPage}. Skipping generation (Resume Mode).`);
             previousPagePath = existingPage;
             generatedFiles.push(existingPage);
             continue;
+        }
+
+        // Phase 1 Art Resume Check
+        let existingArtPath: string | null = null;
+        if (request.twoPhase && !request.page) {
+            existingArtPath = FileHandler.findLatestFile(`${baseName}_phase_1`);
+            if (existingArtPath) {
+                console.error(`DEBUG - Found existing Phase 1 art: ${existingArtPath}. Resuming from Phase 2.`);
+            }
         }
 
         // Resolve Previous Page Reference (Logic for Continuity)
@@ -2548,52 +2557,75 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
         let correctionInstruction = "";
 
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
-            console.error(`DEBUG - Generating ${page.header} (Attempt ${attempt}/${maxRetries})...`);
+            let fullPath = "";
+            let imageSaved = false;
+
+            // Phase 1 Resume Logic: Use existing art if available on first attempt
+            if (attempt === 1 && existingArtPath) {
+                fullPath = existingArtPath;
+                imageSaved = true;
+                console.error(`DEBUG - Resuming ${page.header} using existing Phase 1 art.`);
+            } else {
+                console.error(`DEBUG - Generating ${page.header} (Attempt ${attempt}/${maxRetries})...`);
+                
+                // Apply correction instruction if exists
+                if (correctionInstruction) {
+                    parts[0].text = originalPromptText + correctionInstruction;
+                    console.error(`DEBUG - Applied correction instruction to prompt.`);
+                }
+
+                try {
+                    const response = await this.ai.models.generateContent({
+                      model: this.artModel,
+                      contents: [{ role: 'user', parts: parts }],
+                      config: {
+                        responseModalities: (request.twoPhase ? false : request.includeText) ? ['IMAGE', 'TEXT'] : ['IMAGE'],
+                        imageConfig: {
+                          aspectRatio: this.getAspectRatioString(request.layout),
+                        },
+                        safetySettings: this.getSafetySettings(),
+                      } as any,
+                    });
             
-            // Apply correction instruction if exists
-            if (correctionInstruction) {
-                parts[0].text = originalPromptText + correctionInstruction;
-                console.error(`DEBUG - Applied correction instruction to prompt.`);
+                    if (response.candidates && response.candidates[0]?.content?.parts) {
+                      for (const part of response.candidates[0].content.parts) {
+                        let imageBase64: string | undefined;
+                        if (part.inlineData?.data) {
+                          imageBase64 = part.inlineData.data;
+                        } else if (part.text && this.isValidBase64ImageData(part.text)) {
+                          imageBase64 = part.text;
+                        }
+            
+                        if (imageBase64) {
+                          // Save with _phase_1 suffix if in two-phase mode
+                          const phase1Suffix = request.twoPhase ? ' phase 1' : '';
+                          const filename = FileHandler.generateFilename(
+                            `manga ${page.header}${phase1Suffix}`,
+                            'png',
+                            0,
+                          );
+                          fullPath = await FileHandler.saveImageFromBase64(
+                            imageBase64,
+                            FileHandler.ensureOutputDirectory(),
+                            filename,
+                          );
+                          
+                          await this.logGeneration(this.artModel, [fullPath], `Phase 1 (Art) for ${page.header}`);
+                          imageSaved = true;
+                          break;
+                        }
+                      }
+                    }
+                } catch (error: unknown) {
+                    const msg = this.handleApiError(error);
+                    console.error(`DEBUG - Error generating ${page.header} (Attempt ${attempt}):`, msg);
+                    if (attempt === maxRetries && !firstError) firstError = msg;
+                    continue; // Try next attempt
+                }
             }
 
-            try {
-                const response = await this.ai.models.generateContent({
-                  model: this.artModel,
-                  contents: [{ role: 'user', parts: parts }],
-                  config: {
-                    responseModalities: (request.twoPhase ? false : request.includeText) ? ['IMAGE', 'TEXT'] : ['IMAGE'],
-                    imageConfig: {
-                      aspectRatio: this.getAspectRatioString(request.layout),
-                    },
-                    safetySettings: this.getSafetySettings(),
-                  } as any,
-                });
-        
-                let imageSaved = false;
-                if (response.candidates && response.candidates[0]?.content?.parts) {
-                  for (const part of response.candidates[0].content.parts) {
-                    let imageBase64: string | undefined;
-                    if (part.inlineData?.data) {
-                      imageBase64 = part.inlineData.data;
-                    } else if (part.text && this.isValidBase64ImageData(part.text)) {
-                      imageBase64 = part.text;
-                    }
-        
-                    if (imageBase64) {
-                      // Save to the canonical filename
-                      const filename = FileHandler.generateFilename(
-                        `manga ${page.header}`,
-                        'png',
-                        0,
-                      );
-                      const fullPath = await FileHandler.saveImageFromBase64(
-                        imageBase64,
-                        FileHandler.ensureOutputDirectory(),
-                        filename,
-                      );
-                      
-                      await this.logGeneration(this.artModel, [fullPath], `Phase 1 (Art) for ${page.header}`);
-                      
+            if (imageSaved && fullPath) {
+                try {
                       // Phase 1 Review (Likeness, Continuity, NO BUBBLES)
                       if (request.twoPhase) {
                           const contextForReview = `Scene Prompt: ${request.prompt || ''}\nScript Content: ${page.content}`;
@@ -2625,6 +2657,9 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                               } catch (e) {
                                   console.error(`DEBUG - Failed to delete ${fullPath}:`, e);
                               }
+                              
+                              // Clear existingArtPath to ensure next attempt actually generates
+                              existingArtPath = null;
                               
                               // Add correction instruction
                               correctionInstruction = `\n\n[CRITICAL ART CORRECTION]\nPrevious Art rejected: ${phase1Review.reason}\nFix likeness and ENSURE NO BUBBLES/TEXT.`;
@@ -2710,7 +2745,6 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                           previousPagePath = finalPathForReview; // Update for next iteration
                           finalGeneratedPath = finalPathForReview;
                           attemptSuccess = true;
-                          imageSaved = true;
                           console.error(`DEBUG - SUCCESS: Generated ${page.header} on attempt ${attempt}. Score: ${review.score}`);
                           break; 
                       } else {
@@ -2729,6 +2763,9 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                               console.error(`DEBUG - Failed to clean up failed images:`, e);
                           }
                           
+                          // Clear existingArtPath to ensure next attempt actually generates
+                          existingArtPath = null;
+
                           // Dynamic Correction Logic
                           const reasonLower = review.reason.toLowerCase();
                           let specificFix = "";
@@ -2760,23 +2797,14 @@ ${specificFix}
                               };
                           }
                       }
-                    }
-                  }
+                } catch (e: unknown) {
+                    const msg = e instanceof Error ? e.message : String(e);
+                    console.error(`DEBUG - Error in generation process for ${page.header}:`, msg);
+                    if (attempt === maxRetries && !firstError) firstError = msg;
                 }
-                
-                if (attemptSuccess) break; // Break retry loop
-
-                if (!imageSaved && !attemptSuccess && attempt === maxRetries) {
-                    const msg = `Failed to generate image data for ${page.header}`;
-                    console.error(`DEBUG - ${msg}`);
-                    if (!firstError) firstError = msg;
-                }
-
-            } catch (error: unknown) {
-                const msg = this.handleApiError(error);
-                console.error(`DEBUG - Error generating ${page.header} (Attempt ${attempt}):`, msg);
-                if (attempt === maxRetries && !firstError) firstError = msg;
             }
+            
+            if (attemptSuccess) break; // Break retry loop
         }
       }
 
