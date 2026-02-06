@@ -694,10 +694,9 @@ export class ImageGenerator {
 
         CRITICAL PENALTIES:
         ${isPhase1 ? '- [STRICT] SPEECH BUBBLES: If ANY round speech bubble or thought bubble is found, the no_bubbles_score MUST be below 40%. Captions, boxes, and SFX are allowed.' : '- [STRICT] TEXT ACCURACY: If ANY text is missing, gibberish, or paraphrased (different words than script), the lettering_score MUST be below 40%.\n        - [STRICT] NO DUPLICATES: If the same line of dialogue appears twice (e.g. once in a good bubble, once in a bad/ghost bubble), the lettering_score MUST be below 60%.'}
-        ${isColor ? `- [CONDITIONAL] COLOR CONSISTENCY: Compare hair/eye/costume colors. 
-           - If the Character Reference is B&W, IGNORE color differences. 
-           - If the Reference IS Color, strict consistency is required (likeness_score < 60% if mismatched). 
-           - EXCEPTION FOR PHASE 1: If the Generated Image is Black & White (Art Phase) but the Target/Previous Page is Color, this is ACCEPTABLE. Do NOT penalize Story or Continuity scores for B&W art in Phase 1. Assume Phase 2 will colorize it.` : 
+        ${isColor ? `- [CONDITIONAL] COLOR CONSISTENCY: 
+           - EXCEPTION FOR PHASE 1: IGNORE ALL COLOR MISMATCHES. If the image is B&W, Sepia, or wrong colors, DO NOT PENALIZE. Assume Phase 2 will handle all colorization.
+           - FOR PHASE 2: Compare hair/eye/costume colors. If the Character Reference is B&W, IGNORE color differences. If the Reference IS Color, strict consistency is required (likeness_score < 60% if mismatched).` : 
            '- [STRICT] COLOR: If the image is in Color despite "TARGET FORMAT: BLACK AND WHITE", the story_score MUST be below 50%.'}
         - [STRICT] PANEL LAYOUT: Count the panels. If the script asks for a 3-panel stack but the image is a single splash, the story_score MUST be below 50%.
         - If the visual style (shading/art style) clashes with the "Previous Page Reference" (IGNORING Color vs B&W differences in Phase 1), the continuity_score MUST be below 80%.
