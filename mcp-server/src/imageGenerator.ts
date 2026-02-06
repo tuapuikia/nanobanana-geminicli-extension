@@ -796,7 +796,8 @@ export class ImageGenerator {
     pageHeader: string,
     references: { data: string; mimeType: string; sourcePath: string }[],
     isColor: boolean,
-    artPrompt?: string
+    artPrompt?: string,
+    promptsDir?: string
   ): Promise<string> {
     console.error(`DEBUG - Phase 2: Adding text ${isColor ? 'and color ' : ''}to ${pageHeader} using ${this.textModel}...`);
     
@@ -851,6 +852,15 @@ export class ImageGenerator {
         prompt += `
         6. **Art Integrity**: Maintain the original character likenesses and composition from the attached art. Do NOT redraw the panels, only overlay the bubbles, text, and color.
         7. Return the final high-quality image.`;
+        
+        // Save Phase 2 Prompt
+        if (promptsDir) {
+            try {
+                const safeHeader = pageHeader.replace(/[^a-z0-9]/gi, '_');
+                const promptFile = path.join(promptsDir, `page_${safeHeader}_phase2.txt`);
+                await FileHandler.saveTextFile(promptFile, prompt);
+            } catch (e) { console.error('DEBUG - Failed to save Phase 2 prompt:', e); }
+        }
 
         const parts: any[] = [
             { text: prompt },
@@ -929,6 +939,9 @@ export class ImageGenerator {
          const storyDir = storyFileRes.found ? path.dirname(storyFileRes.filePath!) : path.dirname(path.resolve(request.storyFile));
          const charsDir = path.join(storyDir, 'characters');
          FileHandler.ensureDirectory(charsDir);
+         
+         const promptsDir = path.join(storyDir, 'prompts');
+         FileHandler.ensureDirectory(promptsDir);
 
          const sourceName = path.basename(request.inputImage, path.extname(request.inputImage));
          const safeName = sourceName.toLowerCase().replace(/[^a-z0-9]/g, '_');
@@ -1063,6 +1076,11 @@ export class ImageGenerator {
              GENERATE IN FULL COLOR. Vibrant colors, detailed shading.
              Anime/Manga style.
              Full body from head to toe (must include complete legs and shoes), neutral pose, white background. DO NOT SQUASH or compress the figure vertically. Ensure legs are long and anatomically correct. Avoid chibi, dwarf, or super-deformed proportions. Zoom out to fit the entire character within the frame. Leave ample white space margin around the character to prevent cropping of feet or head.`;
+
+             // Save Color Prompt
+             try {
+                 await FileHandler.saveTextFile(path.join(promptsDir, `character_create_${safeName}_color.txt`), colorPrompt);
+             } catch (e) { console.error('DEBUG - Failed to save Color prompt:', e); }
 
              try {
                 const colorRefData = bwRefBase64 || sourceB64;
@@ -1391,6 +1409,10 @@ export class ImageGenerator {
 
       // Memory File Setup
       const memoryPath = await MemoryHandler.getMemoryFilePath(storyFileResult.filePath!);
+      
+      // Prompts Directory Setup (Global for this story)
+      const promptsDir = path.join(path.dirname(storyFileResult.filePath!), 'prompts');
+      FileHandler.ensureDirectory(promptsDir);
 
       // Parse Story Content for Pages
       // Splits by headers like "# Page 1", "## Page 2", "Page 3:"
@@ -1465,6 +1487,9 @@ export class ImageGenerator {
         const storyDir = path.dirname(storyAbsPath);
         const charsDir = path.join(storyDir, 'characters');
         FileHandler.ensureDirectory(charsDir);
+        
+        const promptsDir = path.join(storyDir, 'prompts');
+        FileHandler.ensureDirectory(promptsDir);
 
         // 1. Parse Explicit Character List in Text
         // Matches: * **Name:** Description  OR  - **Name:** Description
@@ -1675,10 +1700,14 @@ export class ImageGenerator {
                          - Elder (70+): Slight natural spinal curvature (kyphosis), settled center of gravity, prominent joint articulation.
                          ${sourceImageB64 ? 'Use the attached image as the visual source for the character\'s appearance.' : ''}
                          ${request.style || 'shonen'} manga style, black and white, screentones, high quality line art.
-                         Full body from head to toe (must include complete legs and shoes), neutral pose, white background. DO NOT SQUASH or compress the figure vertically. Ensure legs are long and anatomically correct. Avoid chibi, dwarf, or super-deformed proportions. Zoom out to fit the entire character within the frame. Leave ample white space margin around the character to prevent cropping of feet or head.`;
+                                 Full body from head to toe (must include complete legs and shoes), neutral pose, white background. DO NOT SQUASH or compress the figure vertically. Ensure legs are long and anatomically correct. Avoid chibi, dwarf, or super-deformed proportions. Zoom out to fit the entire character within the frame. Leave ample white space margin around the character to prevent cropping of feet or head.`;
+                                         
+                                         // Save B&W Prompt
+                                         try {
+                                             await FileHandler.saveTextFile(path.join(promptsDir, `character_create_${safeName}_bw.txt`), bwPrompt);
+                                         } catch (e) { console.error('DEBUG - Failed to save BW prompt:', e); }
                          
-                         const bwParts: any[] = [{ text: bwPrompt }];
-                         if (sourceImageB64) {
+                                         const bwParts: any[] = [{ text: bwPrompt }];                         if (sourceImageB64) {
                             bwParts.push({ inlineData: { data: sourceImageB64, mimeType: 'image/png' } });
                          }
 
@@ -2214,15 +2243,21 @@ export class ImageGenerator {
                          // Generate Environment Image for this Angle
                          console.error(`DEBUG - Generating Environment (${angle.label}): ${envName}...`);
                          
-                         let envPrompt = `Environment Design: ${envName}. ${envDesc}.
-                         ${angle.promptAdd}
-                         ${request.style || 'shonen'} manga style, black and white background art, detailed, high quality.
-                         NO CHARACTERS. Scenery only.
-                         Establish the layout, furniture, and atmosphere described.
-                         ${request.color ? 'Full color.' : 'Black and white, screentones.'}`;
+                                         let envPrompt = `Environment Design: ${envName}. ${envDesc}.
+                                 ${angle.promptAdd}
+                                 ${request.style || 'shonen'} manga style, black and white background art, detailed, high quality.
+                                 NO CHARACTERS. Scenery only.
+                                 Establish the layout, furniture, and atmosphere described.
+                                 ${request.color ? 'Full color.' : 'Black and white, screentones.'}`;
+                                         
+                                         // Save Environment Prompt
+                                         try {
+                                             const safeEnvName = envName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+                                             const promptFile = path.join(promptsDir, `env_${safeEnvName}_${angle.suffix}.txt`);
+                                             await FileHandler.saveTextFile(promptFile, envPrompt);
+                                         } catch (e) { console.error('DEBUG - Failed to save env prompt:', e); }
                          
-                         const parts: any[] = [{ text: envPrompt }];
-
+                                         const parts: any[] = [{ text: envPrompt }];
                          try {
                             const envResponse = await this.ai.models.generateContent({
                                 model: this.modelName,
@@ -2706,6 +2741,13 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                     parts[0].text = originalPromptText + correctionInstruction;
                     console.error(`DEBUG - Applied correction instruction to prompt.`);
                 }
+                
+                // Save Phase 1 Prompt (Before Generation)
+                try {
+                    const safeHeader = page.header.replace(/[^a-z0-9]/gi, '_');
+                    const promptFile = path.join(promptsDir, `page_${safeHeader}_phase1_attempt${attempt}.txt`);
+                    await FileHandler.saveTextFile(promptFile, parts[0].text);
+                } catch (e) { console.error('DEBUG - Failed to save Phase 1 prompt:', e); }
 
                 try {
                     const response = await this.ai.models.generateContent({
@@ -2839,7 +2881,8 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                                   page.header,
                                   phase2Refs,
                                   request.color || false,
-                                  phase1Prompt || originalPromptText
+                                  phase1Prompt || originalPromptText,
+                                  promptsDir
                               );
                           } catch (e) {
                               console.error(`DEBUG - Phase 2 failed, falling back to Phase Art image for review.`, e);
