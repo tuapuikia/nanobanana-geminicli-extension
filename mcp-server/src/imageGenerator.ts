@@ -1260,8 +1260,11 @@ export class ImageGenerator {
                 const aspectRatio = this.getAspectRatioString(request.layout);
                 console.error(`DEBUG - Generating with Aspect Ratio: ${aspectRatio}`);
 
-                const response = await this.ai.models.generateContent({
-                    model: this.modelName,
+                // Select model: Phase 1 (Art) uses artModel (2.5), Single Phase uses textModel (3.0 Pro)
+            const activeModel = request.twoPhase ? this.artModel : this.textModel;
+            
+            const response = await this.ai.models.generateContent({
+                    model: activeModel,
                     config: {
                       responseModalities: request.includeText ? ['IMAGE', 'TEXT'] : ['IMAGE'],
                       imageConfig: {
@@ -2659,10 +2662,16 @@ Use the attached images as strict visual references.
 3. **Continuity**: If a "Previous Page reference" is attached, you MUST ensure seamless continuity. The placement of objects and characters must logically follow the previous panel. Do not teleport furniture.
 4. **Text & Bubbles**: ${request.twoPhase ? 'DO NOT generate any round speech bubbles. (Rectangular captions, sound effects, and background text are PERMITTED. Only dialogue speech bubbles are forbidden.)' : `Do NOT render the page title ("${page.header.replace(/^[#\s]+/, '')}") as text in the image. You MAY render narrative captions if they are explicitly part of the panel description (e.g. "Caption: ..."), but never the page header itself.`}`;
         
-        if (request.color && !request.twoPhase) {
-            fullPrompt += "\n\n[STRICT COLOR MANDATE]\nGENERATE THIS PAGE IN FULL COLOR. You MUST match the EXACT color palette (hair, skin tone, eyes, clothing) from the attached Reference Images. Do not shift hues or saturation. IGNORE ANY PREVIOUS 'BLACK AND WHITE' INSTRUCTIONS.";
-        } else if (request.twoPhase) {
-            fullPrompt += "\n\n[STYLE MANDATE: ART PHASE]\nGENERATE THIS PAGE IN BLACK AND WHITE. Use professional manga line art, screentones, and traditional shading. NO COLOR.";
+        // Color & Style Mandates
+        if (request.twoPhase) {
+             // Phase 1 is ALWAYS B&W to ensure best line art quality
+             fullPrompt += "\n\n[STYLE MANDATE: ART PHASE]\nGENERATE THIS PAGE IN BLACK AND WHITE. Use professional manga line art, screentones, and traditional shading. NO COLOR. Focus on composition and linework. (Ignore any global 'color' instructions for this phase; Phase 2 will handle colorization).";
+        } else if (request.color) {
+             // Single Phase + Color = Full Color Generation
+             fullPrompt += "\n\n[STRICT COLOR MANDATE]\nGENERATE THIS PAGE IN FULL COLOR. You MUST match the EXACT color palette (hair, skin tone, eyes, clothing) from the attached Reference Images. Do not shift hues or saturation. IGNORE ANY PREVIOUS 'BLACK AND WHITE' INSTRUCTIONS.";
+        } else {
+             // Single Phase + B&W
+             fullPrompt += "\n\n[STYLE MANDATE]\nGENERATE THIS PAGE IN BLACK AND WHITE. Professional manga style.";
         }
 
         if (request.twoPhase) {
