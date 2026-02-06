@@ -2361,14 +2361,30 @@ export class ImageGenerator {
         const filenamePrompt = `manga ${page.header}`;
         const baseName = FileHandler.getSanitizedBaseName(filenamePrompt);
         
-        const latestFile = FileHandler.findLatestFile(baseName);
+        console.error(`DEBUG - Checking for existing files for: "${page.header}" (Base: ${baseName})`);
+
+        let latestFile = FileHandler.findLatestFile(baseName);
+        
+        // Fallback: If exact match failed, try fuzzy search by page number
+        if (!latestFile) {
+            const pageNumMatch = page.header.match(/Page\s*(\d+)/i);
+            if (pageNumMatch) {
+                console.error(`DEBUG - Exact match not found. Trying fuzzy search for Page ${pageNumMatch[1]}...`);
+                latestFile = FileHandler.findPageFile(pageNumMatch[1]);
+                if (latestFile) console.error(`DEBUG - Fuzzy match found: ${latestFile}`);
+            }
+        }
 
         // Only skip if NOT explicitly requested via --page
         if (!request.page && latestFile && latestFile.includes('_final')) {
-            console.error(`DEBUG - Final file already exists: ${latestFile}. Skipping generation (Resume Mode).`);
+            console.error(`DEBUG - ✅ Final file found: ${latestFile}. SKIPPING generation (Resume Mode).`);
             previousPagePath = latestFile;
             generatedFiles.push(latestFile);
             continue;
+        } else if (!request.page && latestFile) {
+             console.error(`DEBUG - Found intermediate file: ${latestFile}. Will check for resume opportunities.`);
+        } else {
+             console.error(`DEBUG - No finished file found for "${page.header}". Proceeding with generation.`);
         }
 
         // Phase 1 Art Resume Check

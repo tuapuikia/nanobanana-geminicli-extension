@@ -181,4 +181,35 @@ export class FileHandler {
       return null;
     }
   }
+
+  static findPageFile(pageNumber: string): string | null {
+      const outputPath = this.ensureOutputDirectory();
+      try {
+          const files = fs.readdirSync(outputPath);
+          // Look for "manga_page_X_" pattern
+          const regex = new RegExp(`^manga_page_${pageNumber}_.*(_final|_phase_1|_\\d+)*\\.(png|jpg|jpeg)$`, 'i');
+          
+          const matches = files.filter(f => regex.test(f));
+          
+          if (matches.length === 0) return null;
+          
+          // Prefer _final, then _phase_1, then others. Sort by priority then date.
+          const sorted = matches.sort((a, b) => {
+              // Priority sorting
+              const aScore = a.includes('_final') ? 3 : (a.includes('_phase_1') ? 2 : 1);
+              const bScore = b.includes('_final') ? 3 : (b.includes('_phase_1') ? 2 : 1);
+              if (aScore !== bScore) return bScore - aScore;
+              
+              // Then date
+              const aTime = fs.statSync(path.join(outputPath, a)).mtime.getTime();
+              const bTime = fs.statSync(path.join(outputPath, b)).mtime.getTime();
+              return bTime - aTime;
+          });
+          
+          console.error(`DEBUG - findPageFile(${pageNumber}) found match: ${sorted[0]}`);
+          return path.join(outputPath, sorted[0]);
+      } catch (e) {
+          return null;
+      }
+  }
 }
