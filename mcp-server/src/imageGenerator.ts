@@ -675,21 +675,21 @@ export class ImageGenerator {
         1. [CRITICAL] Likeness & Identity (100% max): Does the character look EXACTLY like the main Character Reference sheet? Check eye shape, hair style/bangs, and facial structure. Identity must be 100% consistent with the Ground Truth Character Sheet.
         2. [CRITICAL] Continuity (100% max): Does the overall visual style (line weight, shading, lighting) match the "Previous Page Reference"?
         3. [CRITICAL] ${isPhase1 ? 'NO SPEECH BUBBLES' : 'Lettering & Text'} (100% max): 
-           ${isPhase1 ? 'Does the image contain any round SPEECH BUBBLES or THOUGHT BUBBLES? These are forbidden. NOTE: Rectangular caption boxes, sound effects (SFX), and incidental text on objects/walls are ALL PERMITTED. Only actual dialogue bubbles (usually white ovals with tails) are a failure.' : 'Are ALL speech bubbles and caption boxes filled with the correct text from the Story Description? Are there any empty bubbles? Is the text legible and well-centered?'}
+           ${isPhase1 ? 'Does the image contain any round SPEECH BUBBLES or THOUGHT BUBBLES? These are forbidden. NOTE: Rectangular caption boxes, sound effects (SFX), and incidental text on objects/walls are ALL PERMITTED. Only actual dialogue bubbles (usually white ovals with tails) are a failure.' : 'Are ALL speech bubbles and caption boxes filled with the CORRECT text from the Story Description? Check for GIBBERISH or RANDOM TEXT. Any text that does not match the script or looks like garbled nonsense is a CRITICAL FAILURE.'}
         4. [IMPORTANT] Story Accuracy (100% max): Does the image match the provided Story Description (actions, emotions, specific items)?
 
         TOTAL POSSIBLE SCORE: 400%.
         10/10 quality in all categories equals 400%.
 
         SCORING RUBRIC (Be Extremely Strict):
-        - 100%: Perfect match. Identical face, hair, colors, and style. ${isPhase1 ? 'No speech bubbles.' : 'All text present and beautiful.'}
-        - 90%: Excellent likeness. ${isPhase1 ? 'No speech bubbles.' : 'No empty bubbles.'} Only pixel-level differences.
+        - 100%: Perfect match. Identical face, hair, colors, and style. ${isPhase1 ? 'No speech bubbles.' : 'All text is legible, matches script exactly, no gibberish.'}
+        - 90%: Excellent likeness. ${isPhase1 ? 'No speech bubbles.' : 'No empty bubbles, minor spacing issues.'} Only pixel-level differences.
         - 70-80%: Recognizable as the same person, or text has minor spacing issues. FACE MUST MATCH.
-        - 50-60%: Looks like a different person OR ${isPhase1 ? 'Contains speech bubbles' : 'at least one speech bubble is empty/gibberish'}.
+        - 50-60%: Looks like a different person OR ${isPhase1 ? 'Contains speech bubbles' : 'contains GIBBERISH, empty bubbles, or text not in script'}.
         - 10-40%: Completely wrong person, or text is missing entirely.
 
         CRITICAL PENALTIES:
-        ${isPhase1 ? '- [STRICT] SPEECH BUBBLES: If ANY round speech bubble or thought bubble is found, the no_bubbles_score MUST be 0%. Captions, boxes, and SFX are allowed.' : '- [STRICT] EMPTY BUBBLES: If ANY speech bubble or caption box is empty or contains placeholder text, the lettering_score MUST be below 40%.'}
+        ${isPhase1 ? '- [STRICT] SPEECH BUBBLES: If ANY round speech bubble or thought bubble is found, the no_bubbles_score MUST be 0%. Captions, boxes, and SFX are allowed.' : '- [STRICT] TEXT QUALITY: If ANY speech bubble contains gibberish, random letters, or text not in the script, the lettering_score MUST be below 40%. Empty bubbles are also a failure.'}
         - [STRICT] COLOR CONSISTENCY: Compare the hair, eye, and costume colors. If the colors deviate from the Character Reference sheet, the likeness_score MUST be below 60%.
         - If the visual style (shading/art style) clashes with the "Previous Page Reference", the continuity_score MUST be below 80%.
         - [STRICT] FACIAL IDENTITY: Compare the eyes, nose, and jawline. If it looks like a different person from the Character Reference, the likeness_score MUST be below 60%.
@@ -809,9 +809,10 @@ export class ImageGenerator {
         
         INSTRUCTIONS:
         1. **Create Dialogue Bubbles**: Analyze the script and the panels in the attached art. Create speech bubbles and caption boxes that fit the dialogue and composition.
-        2. **Sequential Mapping**: Map the dialogue lines in the script to the bubbles you create in reading order (Top-to-Bottom, and Right-to-Left if traditional manga panels are present).
+        2. **Sequential Mapping**: Map the dialogue lines in the script to the bubbles you create in reading order.
         3. **Lettering**: Render ALL dialogue and captions into the bubbles/boxes. Use professional manga lettering style. Ensure text is centered and legible.
-        4. **Verification**: EVERY line of dialogue and EVERY caption from the script MUST be present on the final page.`;
+        4. **Verification**: EVERY line of dialogue and EVERY caption from the script MUST be present.
+        5. **NO HALLUCINATIONS**: Do NOT add any random text, gibberish, or text not found in the script. All text in the image must come strictly from the provided story script. Check for typos.`;
 
         if (isColor) {
             prompt += `
@@ -2825,6 +2826,9 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                           }
                           if (reasonLower.includes('style') || reasonLower.includes('rendering')) {
                               specificFix += `\n- [STYLE FIX]: The art style was inconsistent. Ensure line weight and shading match the 'Previous Page Reference'.`;
+                          }
+                          if (reasonLower.includes('text') || reasonLower.includes('gibberish') || reasonLower.includes('lettering') || reasonLower.includes('spelling')) {
+                              specificFix += `\n- [TEXT FIX]: The previous text was incorrect or gibberish. You MUST use the EXACT text from the "Story Script". Do NOT hallucinate words. Ensure every bubble is filled with legible English text matching the script.`;
                           }
 
                           // Set correction instruction for next attempt
