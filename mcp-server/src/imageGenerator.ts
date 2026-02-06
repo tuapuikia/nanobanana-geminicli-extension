@@ -670,7 +670,7 @@ export class ImageGenerator {
         Task: Compare the "Generated Image" with the provided "Reference Images" (including "Previous Page Reference" if available) AND the "Story Description".
         
         ${isPhase1 ? 'PHASE: ART PHASE (No Speech Bubbles allowed. Note: Captions, sound effects, and background text are PERMITTED.)' : 'PHASE: FINAL PHASE (Lettering/Color included)'}
-        ${isColor ? 'TARGET FORMAT: FULL COLOR. (If the Story Description says "black and white", IGNORE IT. The user requested COLOR.)' : 'TARGET FORMAT: BLACK AND WHITE (Manga Style).'}
+        ${isPhase1 ? 'TARGET FORMAT: DRAFT ART (Accepts Black & White OR Color). Do NOT penalize B&W art even if the final target is Color. Focus on Line Art.' : (isColor ? 'TARGET FORMAT: FULL COLOR. (If the Story Description says "black and white", IGNORE IT. The user requested COLOR.)' : 'TARGET FORMAT: BLACK AND WHITE (Manga Style).')}
 
         STORY DESCRIPTION / CONTEXT:
         "${storyContext || 'No specific story text provided.'}"
