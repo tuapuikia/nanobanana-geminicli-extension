@@ -676,21 +676,21 @@ export class ImageGenerator {
         1. [CRITICAL] Character Design & Identity (100% max): Does the character look EXACTLY like the main Character Reference sheet? Check eye shape, hair style/bangs, facial structure, BODY TYPE, and COSTUME. Identity and Design must be 100% consistent with the Ground Truth Character Sheet.
         2. [CRITICAL] Continuity (100% max): Does the overall visual style (line weight, shading, lighting) match the "Previous Page Reference"?
         3. [CRITICAL] ${isPhase1 ? 'NO SPEECH BUBBLES' : 'Lettering & Text'} (100% max): 
-           ${isPhase1 ? 'Does the image contain any round SPEECH BUBBLES or THOUGHT BUBBLES? These are forbidden. NOTE: Rectangular caption boxes, sound effects (SFX), and incidental text on objects/walls are ALL PERMITTED. Only actual dialogue bubbles (usually white ovals with tails) are a failure.' : 'Are ALL speech bubbles and caption boxes filled with the CORRECT text from the Story Description? 1. Check for GIBBERISH. 2. Check for MISSING DIALOGUE. Every line in the script must be in the image. 3. Check for hallucinations.'}
+           ${isPhase1 ? 'Does the image contain any round SPEECH BUBBLES or THOUGHT BUBBLES? These are forbidden. NOTE: Rectangular caption boxes, sound effects (SFX), and incidental text on objects/walls are ALL PERMITTED. Only actual dialogue bubbles (usually white ovals with tails) are a failure.' : 'Are ALL speech bubbles and caption boxes filled with the CORRECT text from the Story Description? 1. Check for GIBBERISH. 2. Check for MISSING DIALOGUE. 3. Check for ALTERED TEXT. The text in the image must match the script WORD-FOR-WORD. Paraphrasing is a FAILURE.'}
         4. [CRITICAL] Story Accuracy & Panel Layout (100% max): Does the image match the provided Story Description (actions, emotions, items) AND the PANEL LAYOUT? If the script describes multiple panels (e.g., "Panel 1", "Panel 2"), the image MUST show that structure. If it describes a splash page, it must be one large image.
 
         TOTAL POSSIBLE SCORE: 400%.
         10/10 quality in all categories equals 400%.
 
         SCORING RUBRIC (Be Extremely Strict):
-        - 100%: Perfect match. Identical face, hair, costume, and layout. ${isPhase1 ? 'No speech bubbles.' : 'All text is legible, matches script exactly (no missing lines), no gibberish.'}
-        - 90%: Excellent likeness and layout. ${isPhase1 ? 'No speech bubbles.' : 'No empty bubbles, minor spacing issues.'} Only pixel-level differences.
+        - 100%: Perfect match. Identical face, hair, costume, and layout. ${isPhase1 ? 'No speech bubbles.' : 'All text matches script WORD-FOR-WORD (no missing lines, no typos).'}
+        - 90%: Excellent likeness and layout. ${isPhase1 ? 'No speech bubbles.' : 'No empty bubbles, maybe 1 minor typo.'} Only pixel-level differences.
         - 70-80%: Recognizable, but minor costume or layout details are off. FACE MUST MATCH.
-        - 50-60%: Looks like a different person, wrong outfit, wrong panel count, OR ${isPhase1 ? 'Contains speech bubbles' : 'contains GIBBERISH, MISSING DIALOGUE lines, or text not in script'}.
+        - 50-60%: Looks like a different person, wrong outfit, wrong panel count, OR ${isPhase1 ? 'Contains speech bubbles' : 'contains GIBBERISH, MISSING DIALOGUE, or PARAPHRASED text'}.
         - 10-40%: Completely wrong person, wrong layout, or text is missing entirely.
 
         CRITICAL PENALTIES:
-        ${isPhase1 ? '- [STRICT] SPEECH BUBBLES: If ANY round speech bubble or thought bubble is found, the no_bubbles_score MUST be 0%. Captions, boxes, and SFX are allowed.' : '- [STRICT] TEXT QUALITY: If ANY speech bubble contains gibberish, or if script dialogue is MISSING, the lettering_score MUST be below 40%. Empty bubbles are also a failure.'}
+        ${isPhase1 ? '- [STRICT] SPEECH BUBBLES: If ANY round speech bubble or thought bubble is found, the no_bubbles_score MUST be 0%. Captions, boxes, and SFX are allowed.' : '- [STRICT] TEXT ACCURACY: If ANY text is missing, gibberish, or paraphrased (different words than script), the lettering_score MUST be below 40%.'}
         - [STRICT] COLOR CONSISTENCY: Compare the hair, eye, and costume colors. If the colors deviate from the Character Reference sheet, the likeness_score MUST be below 60%.
         - [STRICT] PANEL LAYOUT: Count the panels. If the script asks for a 3-panel stack but the image is a single splash, the story_score MUST be below 50%.
         - If the visual style (shading/art style) clashes with the "Previous Page Reference", the continuity_score MUST be below 80%.
