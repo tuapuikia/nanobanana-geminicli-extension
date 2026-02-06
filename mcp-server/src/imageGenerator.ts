@@ -666,7 +666,7 @@ export class ImageGenerator {
         const prompt = `You are a strict Quality Assurance AI for a manga production pipeline.
         Task: Compare the "Generated Image" with the provided "Reference Images" (including "Previous Page Reference" if available) AND the "Story Description".
         
-        ${isPhase1 ? 'PHASE: ART PHASE (No Bubbles/Text allowed)' : 'PHASE: FINAL PHASE (Lettering/Color included)'}
+        ${isPhase1 ? 'PHASE: ART PHASE (No Bubbles/Captions allowed)' : 'PHASE: FINAL PHASE (Lettering/Color included)'}
 
         STORY DESCRIPTION / CONTEXT:
         "${storyContext || 'No specific story text provided.'}"
@@ -674,22 +674,22 @@ export class ImageGenerator {
         EVALUATION CRITERIA (Scored out of 100% each):
         1. [CRITICAL] Likeness & Identity (100% max): Does the character look EXACTLY like the main Character Reference sheet? Check eye shape, hair style/bangs, and facial structure. Identity must be 100% consistent with the Ground Truth Character Sheet.
         2. [CRITICAL] Continuity (100% max): Does the overall visual style (line weight, shading, lighting) match the "Previous Page Reference"?
-        3. [CRITICAL] ${isPhase1 ? 'NO BUBBLES OR TEXT' : 'Lettering & Text'} (100% max): 
-           ${isPhase1 ? 'Does the image contain ANY speech bubbles, caption boxes, or text? It MUST be PURE ART only. Any presence of bubbles/text is a FAILURE.' : 'Are ALL speech bubbles and caption boxes filled with the correct text from the Story Description? Are there any empty bubbles? Is the text legible and well-centered?'}
+        3. [CRITICAL] ${isPhase1 ? 'NO SPEECH BUBBLES OR CAPTIONS' : 'Lettering & Text'} (100% max): 
+           ${isPhase1 ? 'Does the image contain ANY speech bubbles or caption boxes? It MUST be PURE ART only. NOTE: Incidental text on artifacts, walls, or letters is PERMITTED, but speech/thought bubbles or narrator captions are a FAILURE.' : 'Are ALL speech bubbles and caption boxes filled with the correct text from the Story Description? Are there any empty bubbles? Is the text legible and well-centered?'}
         4. [IMPORTANT] Story Accuracy (100% max): Does the image match the provided Story Description (actions, emotions, specific items)?
 
         TOTAL POSSIBLE SCORE: 400%.
         10/10 quality in all categories equals 400%.
 
         SCORING RUBRIC (Be Extremely Strict):
-        - 100%: Perfect match. Identical face, hair, colors, and style. ${isPhase1 ? 'Absolutely NO bubbles/text.' : 'All text present and beautiful.'}
-        - 90%: Excellent likeness. ${isPhase1 ? 'No bubbles.' : 'No empty bubbles.'} Only pixel-level differences.
+        - 100%: Perfect match. Identical face, hair, colors, and style. ${isPhase1 ? 'Absolutely NO speech bubbles or captions.' : 'All text present and beautiful.'}
+        - 90%: Excellent likeness. ${isPhase1 ? 'No bubbles/captions.' : 'No empty bubbles.'} Only pixel-level differences.
         - 70-80%: Recognizable as the same person, or text has minor spacing issues. FACE MUST MATCH.
-        - 50-60%: Looks like a different person OR ${isPhase1 ? 'Contains bubbles/text' : 'at least one speech bubble is empty/gibberish'}.
+        - 50-60%: Looks like a different person OR ${isPhase1 ? 'Contains bubbles/captions' : 'at least one speech bubble is empty/gibberish'}.
         - 10-40%: Completely wrong person, or text is missing entirely.
 
         CRITICAL PENALTIES:
-        ${isPhase1 ? '- [STRICT] BUBBLES/TEXT: If ANY speech bubble, caption box, or text is found, the no_bubbles_score MUST be 0%.' : '- [STRICT] EMPTY BUBBLES: If ANY speech bubble or caption box is empty or contains placeholder text, the lettering_score MUST be below 40%.'}
+        ${isPhase1 ? '- [STRICT] BUBBLES/CAPTIONS: If ANY speech bubble or caption box is found, the no_bubbles_score MUST be 0%. Incidental text on background objects or held artifacts is okay.' : '- [STRICT] EMPTY BUBBLES: If ANY speech bubble or caption box is empty or contains placeholder text, the lettering_score MUST be below 40%.'}
         - [STRICT] COLOR CONSISTENCY: Compare the hair, eye, and costume colors. If the colors deviate from the Character Reference sheet, the likeness_score MUST be below 60%.
         - If the visual style (shading/art style) clashes with the "Previous Page Reference", the continuity_score MUST be below 80%.
         - [STRICT] FACIAL IDENTITY: Compare the eyes, nose, and jawline. If it looks like a different person from the Character Reference, the likeness_score MUST be below 60%.
@@ -2694,7 +2694,7 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                               existingArtPath = null;
                               
                               // Add correction instruction
-                              correctionInstruction = `\n\n[CRITICAL ART CORRECTION]\nPrevious Art rejected: ${phase1Review.reason}\nFix likeness and ENSURE NO BUBBLES/TEXT.`;
+                              correctionInstruction = `\n\n[CRITICAL ART CORRECTION]\nPrevious Art rejected: ${phase1Review.reason}\nFix likeness and ENSURE NO BUBBLES OR CAPTION BOXES. (Background text on walls/items is okay).`;
                               
                               if (attempt === maxRetries) {
                                   return { success: false, message: `Failed at Phase 1 after ${maxRetries} attempts.`, error: errorMsg, generatedFiles };
