@@ -890,9 +890,10 @@ export class ImageGenerator {
 
         prompt += `
         6. **Art Integrity & Correction**: 
-           - Maintain the original panel layout and composition.
-           - **CRITICAL**: Compare the input art with the "Reference Image" portraits. If the character's face, hair, or details in the sketch are wrong or generic, **YOU MUST REDRAW/CORRECT THEM** to match the reference exactly. 
-           - The final image must have perfect on-model characters, even if the input sketch was off.
+           - **TREAT INPUT AS SKETCH**: Consider the attached Input Art as a "Rough Layout". You are NOT just coloring it; you are FINISHING it.
+           - **FACE CORRECTION**: The input sketch may have "off-model" faces. You MUST look at the attached "Reference Image" and **REDRAW** the eyes, hair, and jawline to match the Reference exactly.
+           - **PRIORITY**: Reference Image Identity > Input Sketch details. If the sketch doesn't look like the character, FIX IT.
+           - The final image must have perfect on-model characters.
         7. Return the final high-quality image.`;
         
         // Save Phase 2 Prompt
