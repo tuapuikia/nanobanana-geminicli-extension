@@ -1267,8 +1267,8 @@ export class ImageGenerator {
                 const aspectRatio = this.getAspectRatioString(request.layout);
                 console.error(`DEBUG - Generating with Aspect Ratio: ${aspectRatio}`);
 
-                // Select model: Phase 1 (Art) uses artModel (2.5), Single Phase uses textModel (3.0 Pro)
-            const activeModel = request.twoPhase ? this.artModel : this.textModel;
+                // Select model: Phase 1 (Art) uses artModel (2.5), Single Phase uses modelName (User Defined or Default)
+            const activeModel = request.twoPhase ? this.artModel : this.modelName;
             
             const response = await this.ai.models.generateContent({
                     model: activeModel,
