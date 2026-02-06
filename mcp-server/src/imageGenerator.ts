@@ -666,7 +666,7 @@ export class ImageGenerator {
         const prompt = `You are a strict Quality Assurance AI for a manga production pipeline.
         Task: Compare the "Generated Image" with the provided "Reference Images" (including "Previous Page Reference" if available) AND the "Story Description".
         
-        ${isPhase1 ? 'PHASE: ART PHASE (No Bubbles/Captions allowed. Note: Incidental text on background artifacts like signs, walls, or letters is PERMITTED as part of the art. Script dialogue should be expressed through art only.)' : 'PHASE: FINAL PHASE (Lettering/Color included)'}
+        ${isPhase1 ? 'PHASE: ART PHASE (No Speech Bubbles allowed. Note: Captions, sound effects, and background text are PERMITTED.)' : 'PHASE: FINAL PHASE (Lettering/Color included)'}
 
         STORY DESCRIPTION / CONTEXT:
         "${storyContext || 'No specific story text provided.'}"
@@ -674,22 +674,22 @@ export class ImageGenerator {
         EVALUATION CRITERIA (Scored out of 100% each):
         1. [CRITICAL] Likeness & Identity (100% max): Does the character look EXACTLY like the main Character Reference sheet? Check eye shape, hair style/bangs, and facial structure. Identity must be 100% consistent with the Ground Truth Character Sheet.
         2. [CRITICAL] Continuity (100% max): Does the overall visual style (line weight, shading, lighting) match the "Previous Page Reference"?
-        3. [CRITICAL] ${isPhase1 ? 'NO SPEECH BUBBLES OR DIALOGUE TEXT' : 'Lettering & Text'} (100% max): 
-           ${isPhase1 ? 'Does the image contain ANY speech bubbles, caption boxes, or literal dialogue text from the script? It MUST be PURE ART only. NOTE: Incidental wording on background artifacts (walls, signs, handheld letters) is PERMITTED and should NOT be penalized. However, any text representing the dialogue in the script is a FAILURE. Character expressions must reflect the script dialogue without showing the words.' : 'Are ALL speech bubbles and caption boxes filled with the correct text from the Story Description? Are there any empty bubbles? Is the text legible and well-centered?'}
+        3. [CRITICAL] ${isPhase1 ? 'NO SPEECH BUBBLES' : 'Lettering & Text'} (100% max): 
+           ${isPhase1 ? 'Does the image contain any round SPEECH BUBBLES or THOUGHT BUBBLES? These are forbidden. NOTE: Rectangular caption boxes, sound effects (SFX), and incidental text on objects/walls are ALL PERMITTED. Only actual dialogue bubbles (usually white ovals with tails) are a failure.' : 'Are ALL speech bubbles and caption boxes filled with the correct text from the Story Description? Are there any empty bubbles? Is the text legible and well-centered?'}
         4. [IMPORTANT] Story Accuracy (100% max): Does the image match the provided Story Description (actions, emotions, specific items)?
 
         TOTAL POSSIBLE SCORE: 400%.
         10/10 quality in all categories equals 400%.
 
         SCORING RUBRIC (Be Extremely Strict):
-        - 100%: Perfect match. Identical face, hair, colors, and style. ${isPhase1 ? 'No bubbles, captions, or script text.' : 'All text present and beautiful.'}
-        - 90%: Excellent likeness. ${isPhase1 ? 'No bubbles/captions.' : 'No empty bubbles.'} Only pixel-level differences.
+        - 100%: Perfect match. Identical face, hair, colors, and style. ${isPhase1 ? 'No speech bubbles.' : 'All text present and beautiful.'}
+        - 90%: Excellent likeness. ${isPhase1 ? 'No speech bubbles.' : 'No empty bubbles.'} Only pixel-level differences.
         - 70-80%: Recognizable as the same person, or text has minor spacing issues. FACE MUST MATCH.
-        - 50-60%: Looks like a different person OR ${isPhase1 ? 'Contains speech bubbles, narration captions, or script text' : 'at least one speech bubble is empty/gibberish'}.
+        - 50-60%: Looks like a different person OR ${isPhase1 ? 'Contains speech bubbles' : 'at least one speech bubble is empty/gibberish'}.
         - 10-40%: Completely wrong person, or text is missing entirely.
 
         CRITICAL PENALTIES:
-        ${isPhase1 ? '- [STRICT] BUBBLES/TEXT: If ANY structural speech bubble, caption box, or literal dialogue text is found, the no_bubbles_score MUST be 0%. Background labels or incidental wording on objects is perfectly fine.' : '- [STRICT] EMPTY BUBBLES: If ANY speech bubble or caption box is empty or contains placeholder text, the lettering_score MUST be below 40%.'}
+        ${isPhase1 ? '- [STRICT] SPEECH BUBBLES: If ANY round speech bubble or thought bubble is found, the no_bubbles_score MUST be 0%. Captions, boxes, and SFX are allowed.' : '- [STRICT] EMPTY BUBBLES: If ANY speech bubble or caption box is empty or contains placeholder text, the lettering_score MUST be below 40%.'}
         - [STRICT] COLOR CONSISTENCY: Compare the hair, eye, and costume colors. If the colors deviate from the Character Reference sheet, the likeness_score MUST be below 60%.
         - If the visual style (shading/art style) clashes with the "Previous Page Reference", the continuity_score MUST be below 80%.
         - [STRICT] FACIAL IDENTITY: Compare the eyes, nose, and jawline. If it looks like a different person from the Character Reference, the likeness_score MUST be below 60%.
@@ -2452,7 +2452,7 @@ Use the attached images as strict visual references.
    - If a character's design was established in a previous page, you must infer their consistent look from the story context provided, but the Character Sheet always overrides everything regarding physical identity.
 2. **Environments**: The attached "Far View" image is your STRICT VISUAL ANCHOR. Use it to establish the room's layout, furniture placement, and atmosphere. Maintain this location's design exactly.
 3. **Continuity**: If a "Previous Page reference" is attached, you MUST ensure seamless continuity. The placement of objects and characters must logically follow the previous panel. Do not teleport furniture.
-4. **Text & Bubbles**: ${request.twoPhase ? 'DO NOT generate any speech bubbles or caption boxes. The panels should contain purely visual art. (Incidental text on background artifacts like walls, signs, or letters is PERMITTED, but structural lettering elements like bubbles are a FAILURE.)' : `Do NOT render the page title ("${page.header.replace(/^[#\s]+/, '')}") as text in the image. You MAY render narrative captions if they are explicitly part of the panel description (e.g. "Caption: ..."), but never the page header itself.`}`;
+4. **Text & Bubbles**: ${request.twoPhase ? 'DO NOT generate any round speech bubbles. (Rectangular captions, sound effects, and background text are PERMITTED. Only dialogue speech bubbles are forbidden.)' : `Do NOT render the page title ("${page.header.replace(/^[#\s]+/, '')}") as text in the image. You MAY render narrative captions if they are explicitly part of the panel description (e.g. "Caption: ..."), but never the page header itself.`}`;
         
         if (request.color && !request.twoPhase) {
             fullPrompt += "\n\n[STRICT COLOR MANDATE]\nGENERATE THIS PAGE IN FULL COLOR. You MUST match the EXACT color palette (hair, skin tone, eyes, clothing) from the attached Reference Images. Do not shift hues or saturation. IGNORE ANY PREVIOUS 'BLACK AND WHITE' INSTRUCTIONS.";
@@ -2463,12 +2463,11 @@ Use the attached images as strict visual references.
         if (request.twoPhase) {
             fullPrompt += `
 \n[TWO-PHASE GENERATION: ART PHASE]
-IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STRICTLY PROHIBITED: NO SPEECH BUBBLES, NO CAPTION BOXES, NO DIALOGUE BOXES**. 
-- The entire frame must be filled with character and environment art only.
-- NOTE: Incidental text on artifacts (walls, letters, held items) is OKAY, but structural text bubbles or narration boxes are a FAILURE.
-- Dialogue lines in the script should be used ONLY for determining character expressions, poses, and actions. DO NOT render the dialogue text itself or create any containers for it.
-- ZERO white space reserved for text.
-- ZERO placeholder ovals or squares.
+IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STRICTLY PROHIBITED: NO ROUND SPEECH BUBBLES**. 
+- The entire frame must be filled with character and environment art.
+- NOTE: Rectangular caption boxes, sound effects (SFX), and incidental text on artifacts ARE ALLOWED.
+- Dialogue lines in the script should be used ONLY for determining character expressions, poses, and actions. DO NOT render the dialogue text itself inside a speech bubble.
+- ZERO round white space reserved for dialogue.
 - Focus entirely on character likeness, composition, and environment.
 - The panels should be clean, professional illustration only.`;
         }
@@ -2696,7 +2695,7 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                               existingArtPath = null;
                               
                               // Add correction instruction
-                              correctionInstruction = `\n\n[CRITICAL ART CORRECTION]\nPrevious Art rejected: ${phase1Review.reason}\nFix likeness and ENSURE NO BUBBLES, CAPTION BOXES, OR DIALOGUE TEXT. (Background text on walls/items is okay, but script dialogue must be visual-only).`;
+                              correctionInstruction = `\n\n[CRITICAL ART CORRECTION]\nPrevious Art rejected: ${phase1Review.reason}\nFix likeness and ENSURE NO ROUND SPEECH BUBBLES. (Rectangular captions, SFX, and background text are okay).`;
                               
                               if (attempt === maxRetries) {
                                   return { success: false, message: `Failed at Phase 1 after ${maxRetries} attempts.`, error: errorMsg, generatedFiles };
