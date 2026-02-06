@@ -26,7 +26,7 @@ export class ImageGenerator {
   private artModel: string;
   private textModel: string;
   private static readonly DEFAULT_MODEL = 'gemini-3-pro-image-preview';
-  private static readonly DEFAULT_TEXT_MODEL = 'gemini-2.5-flash-image';
+  private static readonly DEFAULT_TEXT_MODEL = 'gemini-3-pro-image-preview';
 
   constructor(authConfig: AuthConfig) {
     this.ai = new GoogleGenAI({
