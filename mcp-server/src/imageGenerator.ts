@@ -114,20 +114,25 @@ export class ImageGenerator {
     await Promise.all(previewPromises);
   }
 
+  private async logToDisk(message: string): Promise<void> {
+      try {
+          const logDir = FileHandler.ensureOutputDirectory();
+          const logFile = path.join(logDir, 'nanobanana-output.log');
+          const timestamp = new Date().toISOString();
+          await fs.promises.appendFile(logFile, `[${timestamp}] ${message}\n`, 'utf-8');
+      } catch (error) {
+          console.error('DEBUG - Failed to write to log file:', error);
+      }
+  }
+
   private async logGeneration(modelName: string, generatedFiles: string[], referenceInfo?: string): Promise<void> {
     try {
-      const logDir = FileHandler.ensureOutputDirectory();
-      const logFile = path.join(logDir, 'nanobanana-output.log');
-      const timestamp = new Date().toISOString();
-      let logEntry = `[${timestamp}] Model: ${modelName}, Generated Files: ${generatedFiles.join(', ')}`;
-      
+      let logEntry = `Model: ${modelName}, Generated Files: ${generatedFiles.join(', ')}`;
       if (referenceInfo) {
           logEntry += `, Reference: ${referenceInfo}`;
       }
-      logEntry += '\n';
-
-      await fs.promises.appendFile(logFile, logEntry, 'utf-8');
-      console.error(`DEBUG - Logged generation to: ${logFile}`);
+      await this.logToDisk(logEntry);
+      console.error(`DEBUG - Logged generation to file.`);
     } catch (error) {
       console.error('DEBUG - Failed to write to log file:', error);
     }
@@ -2371,27 +2376,39 @@ export class ImageGenerator {
             if (pageNumMatch) {
                 console.error(`DEBUG - Exact match not found. Trying fuzzy search for Page ${pageNumMatch[1]}...`);
                 latestFile = FileHandler.findPageFile(pageNumMatch[1]);
-                if (latestFile) console.error(`DEBUG - Fuzzy match found: ${latestFile}`);
+                if (latestFile) {
+                    const msg = `Fuzzy match found for "${page.header}": ${latestFile}`;
+                    console.error(`DEBUG - ${msg}`);
+                    await this.logToDisk(msg);
+                }
             }
         }
 
         // Only skip if NOT explicitly requested via --page
         if (!request.page && latestFile && latestFile.includes('_final')) {
-            console.error(`DEBUG - ✅ Final file found: ${latestFile}. SKIPPING generation (Resume Mode).`);
+            const msg = `✅ Final file found: ${latestFile}. SKIPPING generation (Resume Mode).`;
+            console.error(`DEBUG - ${msg}`);
+            await this.logToDisk(msg);
             previousPagePath = latestFile;
             generatedFiles.push(latestFile);
             continue;
         } else if (!request.page && latestFile) {
-             console.error(`DEBUG - Found intermediate file: ${latestFile}. Will check for resume opportunities.`);
+             const msg = `Found intermediate file: ${latestFile}. Checking for resume opportunities.`;
+             console.error(`DEBUG - ${msg}`);
+             await this.logToDisk(msg);
         } else {
-             console.error(`DEBUG - No finished file found for "${page.header}". Proceeding with generation.`);
+             const msg = `No finished file found for "${page.header}". Proceeding with generation.`;
+             console.error(`DEBUG - ${msg}`);
+             await this.logToDisk(msg);
         }
 
         // Phase 1 Art Resume Check
         let existingArtPath: string | null = null;
         if (request.twoPhase && !request.page && latestFile && latestFile.includes('_phase_1')) {
             existingArtPath = latestFile;
-            console.error(`DEBUG - Found existing Phase 1 art: ${existingArtPath}. Resuming from Phase 2.`);
+            const msg = `Found existing Phase 1 art: ${existingArtPath}. Resuming from Phase 2.`;
+            console.error(`DEBUG - ${msg}`);
+            await this.logToDisk(msg);
         }
 
         // Resolve Previous Page Reference (Logic for Continuity)
@@ -2549,9 +2566,9 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
             const logFile = path.join(logDir, 'nanobanana-output.log');
             const timestamp = new Date().toISOString();
             const aspectRatio = this.getAspectRatioString(request.layout);
-            const logEntry = `[${timestamp}] Generating ${page.header}. Aspect Ratio: ${aspectRatio}. Attached References: ${includedImages.join(', ')}\n`;
+            const logEntry = `Generating ${page.header}. Aspect Ratio: ${aspectRatio}. Attached References: ${includedImages.join(', ')}`;
             
-            await fs.promises.appendFile(logFile, logEntry, 'utf-8');
+            await this.logToDisk(logEntry);
             console.error(`DEBUG - Logged attached references to ${logFile}`);
             console.error(`DEBUG - Generating with Aspect Ratio: ${aspectRatio}`);
 
@@ -2576,7 +2593,9 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
             if (attempt === 1 && existingArtPath) {
                 fullPath = existingArtPath;
                 imageSaved = true;
-                console.error(`DEBUG - Resuming ${page.header} using existing Phase 1 art.`);
+                const msg = `Resuming ${page.header} using existing Phase 1 art: ${existingArtPath}`;
+                console.error(`DEBUG - ${msg}`);
+                await this.logToDisk(msg);
             } else {
                 console.error(`DEBUG - Generating ${page.header} (Attempt ${attempt}/${maxRetries})...`);
                 
@@ -2661,6 +2680,7 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                           if (!phase1Review.pass) {
                               const errorMsg = `Phase 1 Review FAILED for ${page.header} (Attempt ${attempt}). Score: ${phase1Review.score}/400. Reason: ${phase1Review.reason}.`;
                               console.error(`❌ ${errorMsg}`);
+                              await this.logToDisk(errorMsg);
                               
                               // Delete failed file
                               try {
@@ -2681,7 +2701,9 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                               }
                               continue; // Retry Phase 1
                           }
-                          console.error(`✅ Phase 1 Passed Review. Proceeding to Phase 2.`);
+                          const msg = `✅ Phase 1 Passed Review. Proceeding to Phase 2.`;
+                          console.error(msg);
+                          await this.logToDisk(msg);
                       }
 
                       let finalPathForReview = fullPath;
@@ -2757,11 +2779,14 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                           previousPagePath = finalPathForReview; // Update for next iteration
                           finalGeneratedPath = finalPathForReview;
                           attemptSuccess = true;
-                          console.error(`DEBUG - SUCCESS: Generated ${page.header} on attempt ${attempt}. Score: ${review.score}`);
+                          const msg = `SUCCESS: Generated ${page.header} on attempt ${attempt}. Score: ${review.score}`;
+                          console.error(`DEBUG - ${msg}`);
+                          await this.logToDisk(msg);
                           break; 
                       } else {
                           const errorMsg = `Review FAILED for ${page.header} (Attempt ${attempt}). Score: ${review.score}/10. Reason: ${review.reason}.`;
                           console.error(`❌ ${errorMsg}`);
+                          await this.logToDisk(errorMsg);
                           
                           // Delete failed files
                           try {
