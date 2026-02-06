@@ -34,7 +34,7 @@ export class ImageGenerator {
     });
     this.artModel = process.env.NANOBANANA_ART_MODEL || ImageGenerator.DEFAULT_MODEL;
     this.textModel = process.env.NANOBANANA_TEXT_MODEL || ImageGenerator.DEFAULT_TEXT_MODEL;
-    this.modelName = process.env.NANOBANANA_MODEL || this.artModel;
+    this.modelName = process.env.NANOBANANA_MODEL || this.textModel;
     
     console.error(`DEBUG - Models initialized: Art=${this.artModel}, Text=${this.textModel}, Default=${this.modelName}`);
   }
