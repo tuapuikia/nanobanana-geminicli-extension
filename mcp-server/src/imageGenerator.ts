@@ -775,18 +775,20 @@ export class ImageGenerator {
         const imageB64 = await FileHandler.readImageAsBase64(imagePath);
         
         const prompt = `You are a professional manga letterer. 
-        Task: Add the dialogue and captions from the provided story script onto the attached manga page.
+        Task: Add ALL dialogue and captions from the provided story script onto the attached manga page.
         
         STORY SCRIPT FOR ${pageHeader}:
         "${storyContent}"
         
         INSTRUCTIONS:
-        1. Read the attached manga page and identify the empty speech bubbles and caption boxes.
-        2. Correcty place the dialogue from the script into the appropriate bubbles.
-        3. Match the font style and size to professional manga standards.
-        4. Ensure text is centered and legible within the bubbles.
-        5. DO NOT change any art, characters, or backgrounds. Only add text.
-        6. Return the final image with text included.`;
+        1. Scan the attached manga page and identify EVERY empty speech bubble and caption box.
+        2. You MUST place ALL dialogue lines and captions from the script into these bubbles/boxes. 
+        3. Do NOT leave any speech bubble empty if there is text provided in the script.
+        4. Match the font style, weight, and size to professional manga standards.
+        5. Ensure text is perfectly centered and legible within the bubbles. Use multiple lines if necessary to fit the shape.
+        6. CRITICAL: DO NOT modify the existing artwork, characters, or backgrounds. Your ONLY task is to overlay the text.
+        7. If there are more bubbles than text lines, leave the extra ones empty. If there is more text than bubbles, intelligently add the text as captions or create small new bubbles if absolutely necessary, but prioritize filling existing ones first.
+        8. Return the final image with all text rendered.`;
 
         const response = await this.ai.models.generateContent({
             model: ImageGenerator.DEFAULT_TEXT_MODEL,
@@ -812,8 +814,11 @@ export class ImageGenerator {
                 if (b64) {
                     const dir = path.dirname(imagePath);
                     const baseName = path.basename(imagePath, '.png');
-                    const newPath = path.join(dir, `${baseName}_final.png`);
-                    await FileHandler.saveImageFromBase64(b64, dir, `${baseName}_final.png`);
+                    const newFileName = `${baseName}_final.png`;
+                    const newPath = path.join(dir, newFileName);
+                    await FileHandler.saveImageFromBase64(b64, dir, newFileName);
+                    
+                    await this.logGeneration(ImageGenerator.DEFAULT_TEXT_MODEL, [newPath], `Phase 2 (Lettering) for ${pageHeader}`);
                     console.error(`DEBUG - Phase 2 SUCCESS: Saved final image to ${newPath}`);
                     return newPath;
                 }
@@ -2540,6 +2545,8 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but LEAVE
                         FileHandler.ensureOutputDirectory(),
                         filename,
                       );
+                      
+                      await this.logGeneration(this.modelName, [fullPath], `Phase 1 (Art) for ${page.header}`);
                       
                       let finalPathForReview = fullPath;
 
