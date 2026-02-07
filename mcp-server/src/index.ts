@@ -798,21 +798,25 @@ class NanoBananaServer {
     const layout = args?.layout || 'square';
     const isColor = args?.color || false;
 
-    let prompt = `${basePrompt}, ${style} manga style, ${layout} layout`;
-    prompt += ', professional manga art, high quality, detailed ink work';
+    let prompt = `${basePrompt}`;
+    
+    if (isColor) {
+         // Emphasize Color early to override "manga" bias
+         prompt += `, FULL COLOR ${style} style`;
+    } else {
+         prompt += `, ${style} manga style`;
+    }
+
+    prompt += `, ${layout} layout, professional art, high quality`;
 
     if (!isColor) {
-      prompt += ', screentones';
+      prompt += ', detailed ink work, screentones, black and white, traditional manga format';
+    } else {
+       prompt += ', vibrant colors, anime style coloring, digital painting';
     }
 
     if (layout === 'webtoon') {
       prompt += ', vertical scrolling format';
-    }
-
-    if (isColor || layout === 'webtoon') {
-      prompt += ', full color';
-    } else {
-      prompt += ', black and white, traditional manga format';
     }
 
     return prompt;

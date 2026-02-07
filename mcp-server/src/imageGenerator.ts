@@ -699,11 +699,15 @@ export class ImageGenerator {
         CRITICAL PENALTIES:
         ${isPhase1 ? '- [STRICT] SPEECH BUBBLES: If ANY round speech bubble or thought bubble is found, the no_bubbles_score MUST be below 40%. Captions, boxes, and SFX are allowed.' : '- [STRICT] TEXT ACCURACY: If ANY text is missing, gibberish, or paraphrased (different words than script), the lettering_score MUST be below 40%.\n        - [STRICT] NO DUPLICATES: If the same line of dialogue appears twice (e.g. once in a good bubble, once in a bad/ghost bubble), the lettering_score MUST be below 60%.'}
         ${isColor ? `- [CONDITIONAL] COLOR CONSISTENCY: 
-           - EXCEPTION FOR PHASE 1: IGNORE ALL COLOR MISMATCHES. If the image is B&W, Sepia, or wrong colors, DO NOT PENALIZE. Assume Phase 2 will handle all colorization.
-           - FOR PHASE 2: Compare hair/eye/costume colors. If the Character Reference is B&W, IGNORE color differences. If the Reference IS Color, strict consistency is required (likeness_score < 60% if mismatched).` : 
+           - FOR PHASE 1: IGNORE ALL COLOR MISMATCHES.
+           - FOR PHASE 2 / SINGLE PHASE: Compare hair/eye/costume colors. 
+             - If the Reference is B&W, IGNORE color differences. 
+             - If the Reference IS Color, strict consistency is required (likeness_score < 60% if mismatched).
+           - IF "Previous Page Reference" is Color but this page is generated in B&W (or vice-versa) AND this contradicts the user's explicit request, penalize continuity_score. 
+           - HOWEVER, if the user requested Color/B&W explicitly, DO NOT penalize just because the previous page was different.` : 
            '- [LENIENT] COLOR: If the image is in Color despite "TARGET FORMAT: BLACK AND WHITE", DO NOT FAIL. Use your judgment: if the color looks good and matches the scene, ACCEPT IT. Only penalize story_score (max -10%) if the color actively ruins the mood.'}
         - [STRICT] PANEL LAYOUT: Count the panels. If the script asks for a 3-panel stack but the image is a single splash, the story_score MUST be below 50%.
-        - If the visual style (shading/art style) clashes with the "Previous Page Reference" (IGNORING Color vs B&W differences in Phase 1), the continuity_score MUST be below 80%.
+        - If the visual style (shading/art style) clashes with the "Previous Page Reference" (IGNORING Color vs B&W differences if explicit format changed), the continuity_score MUST be below 80%.
         - [STRICT] FACIAL IDENTITY: Compare the eyes, nose, and jawline. If it looks like a different person from the Character Reference, the likeness_score MUST be below 60%.
         - [STRICT] HAIR: The hairstyle (bangs, length, volume) must match the Main Reference exactly. If the hair is different, the likeness_score MUST be below 60%.
         - [STRICT] CLOTHING: The costume DESIGN must be consistent with the reference UNLESS the Story Description or Global Context explicitly describes a different outfit. If the BASE DESIGN changes without reason, the likeness_score MUST be below 60%.
@@ -2719,7 +2723,10 @@ Use the attached images as strict visual references.
                  fullPrompt += "\n\n[STYLE MANDATE: ART PHASE]\nGENERATE THIS PAGE IN BLACK AND WHITE. Use professional manga line art, screentones, and traditional shading. NO COLOR. Focus on composition and linework. (Ignore any global 'color' instructions for this phase; Phase 2 will handle colorization).";
             } else if (request.color) {
                  // Single Phase + Color = Full Color Generation
-                 fullPrompt += "\n\n[STRICT COLOR MANDATE]\nGENERATE THIS PAGE IN FULL COLOR. You MUST match the EXACT color palette (hair, skin tone, eyes, clothing) from the attached Reference Images. Do not shift hues or saturation. IGNORE ANY PREVIOUS 'BLACK AND WHITE' INSTRUCTIONS.";
+                 // PREPENDED STRONG INSTRUCTION to ensure it overrides any "manga" bias
+                 const colorHeader = "[STRICT COLOR MANDATE: FULL COLOR]";
+                 fullPrompt = `${colorHeader} ${fullPrompt}`; 
+                 fullPrompt += "\n\n[STRICT COLOR MANDATE]\nGENERATE THIS PAGE IN FULL COLOR. This is a COLOR COMIC/MANHWA. Do NOT use black and white or screentones. You MUST match the EXACT color palette (hair, skin tone, eyes, clothing) from the attached Reference Images. Do not shift hues or saturation. IGNORE ANY PREVIOUS 'BLACK AND WHITE' INSTRUCTIONS.";
             } else {
                  // Single Phase + B&W
                  fullPrompt += "\n\n[STYLE MANDATE]\nGENERATE THIS PAGE IN BLACK AND WHITE. Use professional manga line art, screentones, and traditional shading. NO COLOR. Focus on composition and linework.";
@@ -3098,7 +3105,8 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                             minStory: request.minStory,
                             minContinuity: request.minContinuity,
                             minLettering: request.minLettering,
-                            storyContext: contextForReview
+                            storyContext: contextForReview,
+                            isColor: request.color
                           });
                           review = { ...r, likeness_score: r.likeness_score ?? 0, lettering_score: r.lettering_score ?? 0 };
                           
