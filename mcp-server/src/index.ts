@@ -98,6 +98,14 @@ class NanoBananaServer {
                   type: 'number',
                   description: 'Seed for reproducible variations',
                 },
+                temperature: {
+                  type: 'number',
+                  description: 'Controls randomness in generation (0.0 to 1.0)',
+                },
+                topP: {
+                  type: 'number',
+                  description: 'Controls diversity of generation (0.0 to 1.0)',
+                },
                 preview: {
                   type: 'boolean',
                   description:
@@ -520,6 +528,14 @@ class NanoBananaServer {
                   description: 'Use two-phase generation: Art then Text. Disabled by default.',
                   default: false,
                 },
+                temperature: {
+                  type: 'number',
+                  description: 'Controls randomness in generation (0.0 to 1.0)',
+                },
+                topP: {
+                  type: 'number',
+                  description: 'Controls diversity of generation (0.0 to 1.0)',
+                },
               },
               required: [],
             },
@@ -548,6 +564,8 @@ class NanoBananaServer {
               variations: args?.variations as string[],
               format: (args?.format as 'grid' | 'separate') || 'separate',
               seed: args?.seed as number,
+              temperature: args?.temperature as number,
+              topP: args?.topP as number,
               preview: args?.preview as boolean,
               noPreview:
                 (args?.noPreview as boolean) ||
@@ -683,6 +701,8 @@ class NanoBananaServer {
               minNoBubbles: args?.min_no_bubbles as number,
               retryCount: args?.retry_count as number,
               twoPhase: args?.two_phase !== undefined ? (args?.two_phase as boolean) : false,
+              temperature: args?.temperature !== undefined ? (args?.temperature as number) : 0.4,
+              topP: args?.topP !== undefined ? (args?.topP as number) : 0.9,
             };
             response = await this.imageGenerator.generateMangaPage(mangaRequest);
             break;

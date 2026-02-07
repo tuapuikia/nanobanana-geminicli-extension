@@ -8,18 +8,21 @@ Valid options:
 - --variations="var1,var2" (lighting, angle, color-palette, composition, mood, season, time-of-day)
 - --format=grid|separate (default: separate)
 - --seed=123 (integer)
+- --temperature=0.9 (number, 0.0-1.0)
+- --topP=0.95 (number, 0.0-1.0)
 - --preview (flag)
 
 User input: {{args}}
 
 Parse this input and:
 1. Extract the main prompt (text before any options)
-2. Validate all options against allowed values
-3. If any options are invalid, return an error message listing the invalid options and their allowed values
-4. If valid, call the generate_image tool with the parsed parameters
+2. Check for natural language patterns for temperature (e.g. "temperature 0.7", "temp 0.7") or topP ("topP 0.9", "top p 0.9").
+3. Validate all options against allowed values
+4. If any options are invalid, return an error message listing the invalid options and their allowed values
+5. If valid, call the generate_image tool with the parsed parameters
 
 If you find invalid options, respond with:
-"Error: Invalid option(s) found: [list invalid options]. Valid options are: --count (1-8), --styles (comma-separated list from: photorealistic, watercolor, oil-painting, sketch, pixel-art, anime, vintage, modern, abstract, minimalist), --variations (comma-separated list from: lighting, angle, color-palette, composition, mood, season, time-of-day), --format (grid or separate), --seed (integer), --preview (flag)"
+"Error: Invalid option(s) found: [list invalid options]. Valid options are: --count (1-8), --styles (...), --variations (...), --format (grid or separate), --seed (integer), --temperature (0.0-1.0), --topP (0.0-1.0), --preview (flag)"
 
 Otherwise, call generate_image with the validated parameters.
 """

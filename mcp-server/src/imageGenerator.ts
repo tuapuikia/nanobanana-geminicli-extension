@@ -303,6 +303,8 @@ export class ImageGenerator {
             config: {
               responseModalities: request.includeText ? ['IMAGE', 'TEXT'] : ['IMAGE'],
               safetySettings: this.getSafetySettings(),
+              temperature: request.temperature,
+              topP: request.topP,
             } as any,
             contents: [
               {
@@ -494,6 +496,8 @@ export class ImageGenerator {
               config: {
                 responseModalities: request.includeText ? ['IMAGE', 'TEXT'] : ['IMAGE'],
                 safetySettings: this.getSafetySettings(),
+                temperature: request.temperature,
+                topP: request.topP,
               } as any,
               contents: [
                 {
@@ -1079,6 +1083,8 @@ export class ImageGenerator {
                       responseModalities: request.includeText ? ['IMAGE', 'TEXT'] : ['IMAGE'],
                       imageConfig: { aspectRatio: this.getAspectRatioString(request.layout) },
                       safetySettings: this.getSafetySettings(),
+                      temperature: request.temperature,
+                      topP: request.topP,
                     } as any,
                     contents: [{ role: 'user', parts: [
                         { text: bwPrompt },
@@ -1145,6 +1151,8 @@ export class ImageGenerator {
                       responseModalities: request.includeText ? ['IMAGE', 'TEXT'] : ['IMAGE'],
                       imageConfig: { aspectRatio: this.getAspectRatioString(request.layout) },
                       safetySettings: this.getSafetySettings(),
+                      temperature: request.temperature,
+                      topP: request.topP,
                     } as any,
                     contents: [{ role: 'user', parts: [
                         { text: colorPrompt },
@@ -1281,6 +1289,8 @@ export class ImageGenerator {
                         aspectRatio: this.getAspectRatioString(request.layout),
                       },
                       safetySettings: this.getSafetySettings(),
+                      temperature: request.temperature,
+                      topP: request.topP,
                     } as any,
                     contents: [
                       {
@@ -1375,6 +1385,8 @@ export class ImageGenerator {
                 aspectRatio: this.getAspectRatioString(request.layout),
               },
               safetySettings: this.getSafetySettings(),
+              temperature: request.temperature,
+              topP: request.topP,
             } as any,
             contents: [
               {
@@ -3240,6 +3252,8 @@ ${specificFix}
         config: {
           responseModalities: request.includeText ? ['IMAGE', 'TEXT'] : ['IMAGE'],
           safetySettings: this.getSafetySettings(),
+          temperature: request.temperature,
+          topP: request.topP,
         } as any,
         contents: [
           {

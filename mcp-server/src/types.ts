@@ -42,6 +42,8 @@ export interface ImageGenerationRequest {
   minNoBubbles?: number;
   retryCount?: number;
   twoPhase?: boolean;
+  temperature?: number;
+  topP?: number;
 }
 
 export interface ImageGenerationResponse {
