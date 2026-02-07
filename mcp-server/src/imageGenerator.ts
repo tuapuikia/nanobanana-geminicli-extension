@@ -741,6 +741,8 @@ export class ImageGenerator {
                 responseModalities: ['TEXT'],
                 responseMimeType: 'application/json',
                 safetySettings: this.getSafetySettings(),
+                temperature: 0.2, // Keep review strictly analytical
+                topP: 0.95,
             } as any,
             contents: [{ role: 'user', parts: parts }],
         });
@@ -2836,7 +2838,7 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
             const logFile = path.join(logDir, 'nanobanana-output.log');
             const timestamp = new Date().toISOString();
             const aspectRatio = this.getAspectRatioString(request.layout);
-            const logEntry = `Generating ${page.header}. Aspect Ratio: ${aspectRatio}. Attached References: ${includedImages.join(', ')}`;
+            const logEntry = `Generating ${page.header}. Aspect Ratio: ${aspectRatio}. Temperature: ${request.temperature ?? 'N/A'}. TopP: ${request.topP ?? 'N/A'}. Attached References: ${includedImages.join(', ')}`;
             
             await this.logToDisk(logEntry);
             console.error(`DEBUG - Logged attached references to ${logFile}`);
@@ -3085,7 +3087,9 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                       
                       if (review.pass) {
                           generatedFiles.push(finalPathForReview);
-                          await this.logGeneration(request.twoPhase ? this.textModel : this.artModel, [finalPathForReview]);
+                          // Use the model that was actually used for generation (activeModel logic mirror)
+                          const usedModel = request.twoPhase ? this.textModel : (request.twoPhase ? this.artModel : this.modelName); 
+                          await this.logGeneration(usedModel, [finalPathForReview]);
                           
                           // Cleanup intermediate Phase 1 Art file
                           if (request.twoPhase && finalPathForReview !== fullPath) {

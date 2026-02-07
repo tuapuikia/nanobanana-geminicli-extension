@@ -701,8 +701,8 @@ class NanoBananaServer {
               minNoBubbles: args?.min_no_bubbles as number,
               retryCount: args?.retry_count as number,
               twoPhase: args?.two_phase !== undefined ? (args?.two_phase as boolean) : false,
-              temperature: args?.temperature !== undefined ? (args?.temperature as number) : 0.4,
-              topP: args?.topP !== undefined ? (args?.topP as number) : 0.9,
+              temperature: args?.temperature !== undefined ? (args?.temperature as number) : 0.5,
+              topP: args?.topP !== undefined ? (args?.topP as number) : 0.85,
             };
             response = await this.imageGenerator.generateMangaPage(mangaRequest);
             break;
