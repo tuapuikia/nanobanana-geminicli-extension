@@ -16,6 +16,7 @@ Valid options:
 - --temperature="number" (optional, default: 0.5, 0.0-2.0)
 - --topP="number" (optional, default: 0.85, 0.0-1.0)
 - --color (flag)
+- --two-phase (flag, default: false, generates Art first, then Text)
 - --preview (flag)
 - --generate-characters (flag)
 - --generate-environments (flag)

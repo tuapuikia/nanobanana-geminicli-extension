@@ -2964,18 +2964,30 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                                   } catch (e) {}
                               }
     
-                              const phase1Review = await this.reviewGeneratedImage(fullPath, reviewRefs, {
-                                  minScore: request.minScore || 8,
-                                  minLikeness: request.minLikeness,
-                                  minStory: request.minStory,
-                                  minContinuity: request.minContinuity,
-                                  minLettering: request.minLettering,
-                                  minNoBubbles: request.minNoBubbles,
-                                  storyContext: contextForReview,
-                                  isPhase1: true,
-                                  isColor: request.color
-                              });
-    
+                              let phase1Review = { pass: false, score: 0, reason: "Initial Check", likeness_score: 0, lettering_score: 0 };
+                              let p1Retry = 0;
+                              while (p1Retry < 3) {
+                                  p1Retry++;
+                                  const r = await this.reviewGeneratedImage(fullPath, reviewRefs, {
+                                      minScore: request.minScore || 8,
+                                      minLikeness: request.minLikeness,
+                                      minStory: request.minStory,
+                                      minContinuity: request.minContinuity,
+                                      minLettering: request.minLettering,
+                                      minNoBubbles: request.minNoBubbles,
+                                      storyContext: contextForReview,
+                                      isPhase1: true,
+                                      isColor: request.color
+                                  });
+                                  phase1Review = { ...r, likeness_score: r.likeness_score ?? 0, lettering_score: r.lettering_score ?? 0 };
+                                  
+                                  if (phase1Review.pass) break;
+                                  // Retry only on suspicious failures (Score 0)
+                                  if (phase1Review.score > 0 && phase1Review.reason !== "No reason provided.") break;
+                                  console.error(`DEBUG - Phase 1 Review suspicious (Score 0). Retrying review (${p1Retry}/3)...`);
+                                  await this.delay(1000);
+                              }
+
                               if (!phase1Review.pass) {
                                   const errorMsg = `Phase 1 Review FAILED for ${page.header} (Attempt ${attempt}). Score: ${phase1Review.score}/400. Reason: ${phase1Review.reason}.`;
                                   console.error(`❌ ${errorMsg}`);
@@ -3076,14 +3088,26 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                           }
                       }
 
-                      const review = await this.reviewGeneratedImage(finalPathForReview, reviewRefs, {
-                        minScore: request.minScore || 8,
-                        minLikeness: request.minLikeness,
-                        minStory: request.minStory,
-                        minContinuity: request.minContinuity,
-                        minLettering: request.minLettering,
-                        storyContext: contextForReview
-                      });
+                      let review = { pass: false, score: 0, reason: "Initial Check", likeness_score: 0, lettering_score: 0 };
+                      let finalRetry = 0;
+                      while (finalRetry < 3) {
+                          finalRetry++;
+                          const r = await this.reviewGeneratedImage(finalPathForReview, reviewRefs, {
+                            minScore: request.minScore || 8,
+                            minLikeness: request.minLikeness,
+                            minStory: request.minStory,
+                            minContinuity: request.minContinuity,
+                            minLettering: request.minLettering,
+                            storyContext: contextForReview
+                          });
+                          review = { ...r, likeness_score: r.likeness_score ?? 0, lettering_score: r.lettering_score ?? 0 };
+                          
+                          if (review.pass) break;
+                          // Retry only on suspicious failures (Score 0)
+                          if (review.score > 0 && review.reason !== "No reason provided.") break;
+                          console.error(`DEBUG - Review suspicious (Score 0). Retrying review (${finalRetry}/3)...`);
+                          await this.delay(1000);
+                      }
                       
                       if (review.pass) {
                           generatedFiles.push(finalPathForReview);
@@ -3121,23 +3145,37 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                           // Log Failure to Memory
                           await MemoryHandler.updateMemory(memoryPath, page.header, 2, 'FAILED', { reason: review.reason });
                           
-                          // Delete failed files
+                          // Delete failed files (or Rename)
                           try {
+                              let failedPath = "";
+                              
                               if (finalPathForReview !== fullPath) {
-                                  // RENAME failed Phase 2 file for reference instead of deleting
+                                  // Two-Phase Phase 2 Failed: Rename Phase 2 file
                                   const dir = path.dirname(finalPathForReview);
                                   const ext = path.extname(finalPathForReview);
                                   const base = path.basename(finalPathForReview, ext);
                                   const failedFilename = `${base}_failed_${Date.now()}${ext}`;
-                                  const failedPath = path.join(dir, failedFilename);
+                                  failedPath = path.join(dir, failedFilename);
                                   
                                   await fs.promises.rename(finalPathForReview, failedPath);
                                   console.error(`DEBUG - Renamed failed Final image to: ${failedPath}`);
+                              } else if (!request.twoPhase) {
+                                  // Single Phase Failed: Rename the only file we have
+                                  const dir = path.dirname(fullPath);
+                                  const ext = path.extname(fullPath);
+                                  const base = path.basename(fullPath, ext);
+                                  const failedFilename = `${base}_failed_${Date.now()}${ext}`;
+                                  failedPath = path.join(dir, failedFilename);
                                   
-                                  // Log Failure to Memory with path
+                                  await fs.promises.rename(fullPath, failedPath);
+                                  console.error(`DEBUG - Renamed failed Single-Phase image to: ${failedPath}`);
+                              }
+
+                              // Update Memory with the new failed path
+                              if (failedPath) {
                                   await MemoryHandler.updateMemory(memoryPath, page.header, 2, 'FAILED', { reason: review.reason, failedPath: failedPath });
                               } else {
-                                   await MemoryHandler.updateMemory(memoryPath, page.header, 2, 'FAILED', { reason: review.reason });
+                                  await MemoryHandler.updateMemory(memoryPath, page.header, 2, 'FAILED', { reason: review.reason });
                               }
                               
                               if (request.twoPhase) {
@@ -3145,15 +3183,11 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                                   console.error(`DEBUG - Preserving Phase 1 Art for retry: ${fullPath}`);
                                   existingArtPath = fullPath;
                               } else {
-                                  // Single phase or fallback - delete if failed
-                                  if (fullPath !== finalPathForReview || !request.twoPhase) {
-                                       await fs.promises.unlink(fullPath);
-                                       console.error(`DEBUG - Deleted failed image: ${fullPath}`);
-                                  }
+                                  // Single phase - we already renamed it, so just clear the path tracker
                                   existingArtPath = null;
                               }
                           } catch (e) {
-                              console.error(`DEBUG - Failed to clean up failed images:`, e);
+                              console.error(`DEBUG - Failed to handle failed images:`, e);
                           }
                           
                           // Dynamic Correction Logic
