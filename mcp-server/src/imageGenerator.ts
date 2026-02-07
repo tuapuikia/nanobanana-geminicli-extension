@@ -872,6 +872,8 @@ export class ImageGenerator {
         3. **Lettering**: Render ALL dialogue and captions into the bubbles/boxes. Use professional manga lettering style. Ensure text is centered and legible.
         4. **Verification**: EVERY line of dialogue and EVERY caption from the script MUST be present.
         5. **NO HALLUCINATIONS**: Do NOT add any random text, gibberish, or text not found in the script. All text in the image must come strictly from the provided story script. Check for typos.
+           - **STRICT PROHIBITION**: Do not invent new lines of dialogue. Do not paraphrase. Do not add "narration" that isn't in the script.
+           - If a bubble exists in the art but has no matching text in the script, LEAVE IT EMPTY or REMOVE IT. Do not fill it with hallucinated text.
         6. **CLEANUP & DEDUPLICATION**: The input art might contain "ghost" bubbles, faint text, or artifacts from the drawing phase. You MUST COVER or OVERPAINT these with your new, correct bubbles or artwork edits. Ensure there is NO DUPLICATE TEXT (e.g., the same line appearing twice). The final image must only contain the clean, sharp text from the script.
         7. **NO METADATA**: Do NOT write the Page Number or Page Title ("${pageHeader}") anywhere on the image. Only the dialogue and narrative captions from the script.`;
 
@@ -2695,6 +2697,7 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
 - Dialogue lines in the script should be used ONLY for determining character expressions, poses, and actions. DO NOT render the dialogue text itself inside a speech bubble.
 - ZERO round white space reserved for dialogue.
 - Focus entirely on character likeness, composition, and environment.
+- **ANTI-HALLUCINATION**: Do not draw random scribbles that look like text. If there is no sound effect in the script, do not add one. Do not add 'placeholder' text.
 - The panels should be clean, professional illustration only.`;
         }
 
