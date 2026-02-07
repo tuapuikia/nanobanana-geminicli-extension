@@ -2611,51 +2611,74 @@ export class ImageGenerator {
         }
 
         // Construct Prompt
-        let fullPrompt = `${request.prompt}, ${ratioInstruction}\n\n[GLOBAL CONTEXT]\n${globalContext}\n\n[CURRENT PAGE: ${page.header}]\n${page.content}`;
+        let fullPrompt = "";
+        const parts: any[] = [];
+        const pageImagePaths = this.extractImagePaths(page.content);
         
-        // Inject Failure Memory
-        const failureData = await MemoryHandler.getFailures(memoryPath, page.header);
-        if (failureData.reasons.length > 0) {
-            // Filter out obsolete color warnings if we are in Two-Phase mode (where Phase 1 can be B&W)
-            const activeReasons = failureData.reasons.filter(r => {
-                if (request.twoPhase) {
-                    const rLower = r.toLowerCase();
-                    if (
-                        rLower.includes("target format: full color") || 
-                        rLower.includes("lack of color") || 
-                        rLower.includes("black and white") ||
-                        rLower.includes("lettering") || 
-                        rLower.includes("typo")
-                    ) {
-                        return false; // Ignore old color/text failures for Phase 1
-                    }
-                }
-                return true;
-            });
+        const safeHeader = FileHandler.getSanitizedBaseName(page.header);
+        const successPromptPath = path.join(promptsDir, `page_${safeHeader}_phase1_success.txt`);
+        let usingSavedPrompt = false;
 
-            if (activeReasons.length > 0) {
-                fullPrompt += `\n\n[CRITICAL WARNING: PAST FAILURES]\nThis page has failed previously. You MUST avoid the following errors:\n`;
-                activeReasons.forEach(f => fullPrompt += `- ${f}\n`);
-                fullPrompt += `PAY EXTRA ATTENTION TO THESE SPECIFIC ISSUES.`;
-                console.error(`DEBUG - Injected ${activeReasons.length} past failure(s) into prompt.`);
-            }
+        // Try to load existing successful prompt if valid
+        if (FileHandler.findInputFile(successPromptPath).found) {
+             try {
+                 fullPrompt = await FileHandler.readTextFile(successPromptPath);
+                 usingSavedPrompt = true;
+                 const msg = `Using saved successful prompt from: ${path.basename(successPromptPath)}`;
+                 console.error(`DEBUG - ${msg}`);
+                 await this.logToDisk(msg);
+             } catch (e) { console.error('DEBUG - Failed to read success prompt:', e); }
         }
+
+        // Inject Failure Memory (Always retrieve failure data for potential image references)
+        const failureData = await MemoryHandler.getFailures(memoryPath, page.header);
         
-        // Use failed Phase 2 image as "Layout Reference" if available
         let failedAttemptRef: { data: string, mimeType: string } | null = null;
         if (failureData.failedPaths.length > 0) {
              const lastFailedPath = failureData.failedPaths[failureData.failedPaths.length - 1];
              try {
                  const failedB64 = await FileHandler.readImageAsBase64(lastFailedPath);
                  failedAttemptRef = { data: failedB64, mimeType: 'image/png' };
-                 fullPrompt += `\n\n[PREVIOUS ATTEMPT REFERENCE]\nSee attached "Reference: Previous Attempt". The text was incorrect/gibberish, but the BUBBLE LAYOUT might be useful. You may use it as a layout guide but MUST write correct text.`;
-                 console.error(`DEBUG - Added failed attempt as reference: ${lastFailedPath}`);
+                 console.error(`DEBUG - Loaded failed attempt reference: ${lastFailedPath}`);
              } catch (e) {
                  console.error(`DEBUG - Failed to load failed reference:`, e);
              }
         }
 
-        fullPrompt += `
+        if (!usingSavedPrompt) {
+            fullPrompt = `${request.prompt}, ${ratioInstruction}\n\n[GLOBAL CONTEXT]\n${globalContext}\n\n[CURRENT PAGE: ${page.header}]\n${page.content}`;
+            
+            if (failureData.reasons.length > 0) {
+                // Filter out obsolete color warnings if we are in Two-Phase mode (where Phase 1 can be B&W)
+                const activeReasons = failureData.reasons.filter(r => {
+                    if (request.twoPhase) {
+                        const rLower = r.toLowerCase();
+                        if (
+                            rLower.includes("target format: full color") || 
+                            rLower.includes("lack of color") || 
+                            rLower.includes("black and white") ||
+                            rLower.includes("lettering") || 
+                            rLower.includes("typo")
+                        ) {
+                            return false; // Ignore old color/text failures for Phase 1
+                        }
+                    }
+                    return true;
+                });
+
+                if (activeReasons.length > 0) {
+                    fullPrompt += `\n\n[CRITICAL WARNING: PAST FAILURES]\nThis page has failed previously. You MUST avoid the following errors:\n`;
+                    activeReasons.forEach(f => fullPrompt += `- ${f}\n`);
+                    fullPrompt += `PAY EXTRA ATTENTION TO THESE SPECIFIC ISSUES.`;
+                    console.error(`DEBUG - Injected ${activeReasons.length} past failure(s) into prompt.`);
+                }
+            }
+            
+            if (failedAttemptRef) {
+                 fullPrompt += `\n\n[PREVIOUS ATTEMPT REFERENCE]\nSee attached "Reference: Previous Attempt". The text was incorrect/gibberish, but the BUBBLE LAYOUT might be useful. You may use it as a layout guide but MUST write correct text.`;
+            }
+
+            fullPrompt += `
 \n[INSTRUCTION]
 Use the attached images as strict visual references.
 1. **Characters**: **STRICTLY COPY** the facial features and hairstyle from the attached reference images.
@@ -2676,20 +2699,20 @@ Use the attached images as strict visual references.
    - **NO TITLE TEXT**: Do NOT render the page header ("${page.header.replace(/^[#\s]+/, '')}") as text in the image.
    ${request.twoPhase ? '- **NO SPEECH BUBBLES**: DO NOT generate any round speech bubbles. (Rectangular captions, sound effects, and background text are PERMITTED. Only dialogue speech bubbles are forbidden.)' : `- Do NOT render the page title as text. You MAY render narrative captions if they are explicitly part of the panel description (e.g. "Caption: ...").`}`;
         
-        // Color & Style Mandates
-        if (request.twoPhase) {
-             // Phase 1 is ALWAYS B&W to ensure best line art quality
-             fullPrompt += "\n\n[STYLE MANDATE: ART PHASE]\nGENERATE THIS PAGE IN BLACK AND WHITE. Use professional manga line art, screentones, and traditional shading. NO COLOR. Focus on composition and linework. (Ignore any global 'color' instructions for this phase; Phase 2 will handle colorization).";
-        } else if (request.color) {
-             // Single Phase + Color = Full Color Generation
-             fullPrompt += "\n\n[STRICT COLOR MANDATE]\nGENERATE THIS PAGE IN FULL COLOR. You MUST match the EXACT color palette (hair, skin tone, eyes, clothing) from the attached Reference Images. Do not shift hues or saturation. IGNORE ANY PREVIOUS 'BLACK AND WHITE' INSTRUCTIONS.";
-        } else {
-             // Single Phase + B&W
-             fullPrompt += "\n\n[STYLE MANDATE]\nGENERATE THIS PAGE IN BLACK AND WHITE. Use professional manga line art, screentones, and traditional shading. NO COLOR. Focus on composition and linework.";
-        }
+            // Color & Style Mandates
+            if (request.twoPhase) {
+                 // Phase 1 is ALWAYS B&W to ensure best line art quality
+                 fullPrompt += "\n\n[STYLE MANDATE: ART PHASE]\nGENERATE THIS PAGE IN BLACK AND WHITE. Use professional manga line art, screentones, and traditional shading. NO COLOR. Focus on composition and linework. (Ignore any global 'color' instructions for this phase; Phase 2 will handle colorization).";
+            } else if (request.color) {
+                 // Single Phase + Color = Full Color Generation
+                 fullPrompt += "\n\n[STRICT COLOR MANDATE]\nGENERATE THIS PAGE IN FULL COLOR. You MUST match the EXACT color palette (hair, skin tone, eyes, clothing) from the attached Reference Images. Do not shift hues or saturation. IGNORE ANY PREVIOUS 'BLACK AND WHITE' INSTRUCTIONS.";
+            } else {
+                 // Single Phase + B&W
+                 fullPrompt += "\n\n[STYLE MANDATE]\nGENERATE THIS PAGE IN BLACK AND WHITE. Use professional manga line art, screentones, and traditional shading. NO COLOR. Focus on composition and linework.";
+            }
 
-        if (request.twoPhase) {
-            fullPrompt += `
+            if (request.twoPhase) {
+                fullPrompt += `
 \n[TWO-PHASE GENERATION: ART PHASE]
 IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STRICTLY PROHIBITED: NO ROUND SPEECH BUBBLES**. 
 - The entire frame must be filled with character and environment art.
@@ -2699,39 +2722,38 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
 - Focus entirely on character likeness, composition, and environment.
 - **ANTI-HALLUCINATION**: Do not draw random scribbles that look like text. If there is no sound effect in the script, do not add one. Do not add 'placeholder' text.
 - The panels should be clean, professional illustration only.`;
-        }
+            }
 
-        // Prepare Message Parts
-        const parts: any[] = [];
-        
-        // 1. Build Reference Mapping Table for the Prompt
-        let referenceTags = "[STRICT REFERENCE MAPPING]\nThe following images are attached. You MUST use the specific image when the corresponding Name/Tag appears in the story:\n";
-        
-        // Global Refs
-        for (const img of globalReferenceImages) {
-            const label = path.basename(img.sourcePath, path.extname(img.sourcePath)).replace(/_/g, ' ');
-            // Simple heuristic: "kenji_portrait" -> Tag: "kenji"
-            // "unity_hq_far" -> Tag: "unity hq"
-            const tag = label.replace(/\s+(portrait|sheet|reference|ref|far|view|env|environment)$/i, '').trim();
-            referenceTags += `- Tag: "${tag}" matches Reference Image: "${label}"\n`;
-        }
-
-        // Page Refs
-        const pageImagePaths = this.extractImagePaths(page.content);
-        for (const imgPath of pageImagePaths) {
-            if (globalImagePaths.includes(imgPath)) continue;
-             const fileRes = FileHandler.findInputFile(imgPath);
-             if (fileRes.found) {
-                const label = path.basename(fileRes.filePath!, path.extname(fileRes.filePath!)).replace(/_/g, ' ');
+            // Prepare Message Parts
+            
+            // 1. Build Reference Mapping Table for the Prompt
+            let referenceTags = "[STRICT REFERENCE MAPPING]\nThe following images are attached. You MUST use the specific image when the corresponding Name/Tag appears in the story:\n";
+            
+            // Global Refs
+            for (const img of globalReferenceImages) {
+                const label = path.basename(img.sourcePath, path.extname(img.sourcePath)).replace(/_/g, ' ');
+                // Simple heuristic: "kenji_portrait" -> Tag: "kenji"
+                // "unity_hq_far" -> Tag: "unity hq"
                 const tag = label.replace(/\s+(portrait|sheet|reference|ref|far|view|env|environment)$/i, '').trim();
                 referenceTags += `- Tag: "${tag}" matches Reference Image: "${label}"\n`;
-             }
-        }
-        
-        referenceTags += "\n[INSTRUCTION]\nWhen you see a Tag in the text (e.g., 'Kenji enters'), look up the corresponding 'Reference Image' above and Apply it STRICTLY.\n";
+            }
 
-        // Append to fullPrompt
-        fullPrompt += `\n\n${referenceTags}`;
+            // Page Refs (using pre-extracted variable)
+            for (const imgPath of pageImagePaths) {
+                if (globalImagePaths.includes(imgPath)) continue;
+                 const fileRes = FileHandler.findInputFile(imgPath);
+                 if (fileRes.found) {
+                    const label = path.basename(fileRes.filePath!, path.extname(fileRes.filePath!)).replace(/_/g, ' ');
+                    const tag = label.replace(/\s+(portrait|sheet|reference|ref|far|view|env|environment)$/i, '').trim();
+                    referenceTags += `- Tag: "${tag}" matches Reference Image: "${label}"\n`;
+                 }
+            }
+            
+            referenceTags += "\n[INSTRUCTION]\nWhen you see a Tag in the text (e.g., 'Kenji enters'), look up the corresponding 'Reference Image' above and Apply it STRICTLY.\n";
+
+            // Append to fullPrompt
+            fullPrompt += `\n\n${referenceTags}`;
+        }
 
         parts.push({ text: fullPrompt });
 
@@ -2976,6 +2998,14 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                               const msg = `✅ Phase 1 Passed Review. Proceeding to Phase 2.`;
                               console.error(msg);
                               await this.logToDisk(msg);
+                              
+                              // Save Final Phase 1 Prompt for Future Regen
+                              try {
+                                  const safeHeader = FileHandler.getSanitizedBaseName(page.header);
+                                  const finalPromptFile = path.join(promptsDir, `page_${safeHeader}_phase1_success.txt`);
+                                  await FileHandler.saveTextFile(finalPromptFile, originalPromptText);
+                                  console.error(`DEBUG - Saved Final Phase 1 Prompt to: ${finalPromptFile}`);
+                              } catch (e) { console.error('DEBUG - Failed to save final prompt:', e); }
                               
                               // Update Memory
                               await MemoryHandler.updateMemory(memoryPath, page.header, 1, 'PASSED', { filePath: fullPath, prompt: originalPromptText });
