@@ -670,7 +670,12 @@ class NanoBananaServer {
 
           case 'generate_manga': {
             const mangaRequest: ImageGenerationRequest = {
-              prompt: this.buildMangaPrompt(args as any),
+              prompt: ImageGenerator.buildMangaPrompt({
+                  prompt: args?.prompt as string,
+                  style: args?.style as string,
+                  layout: args?.layout as string,
+                  color: args?.color as boolean,
+              }),
               storyFile: args?.story_file as string,
               inputImage: args?.input_image as string,
               inputDirectory: args?.input_directory as string,
@@ -788,36 +793,6 @@ class NanoBananaServer {
     prompt += `, ${complexity} level of detail, ${colors} color scheme`;
     prompt += `, ${annotations} annotations and labels`;
     prompt += ', clean technical illustration, clear visual hierarchy';
-
-    return prompt;
-  }
-
-  private buildMangaPrompt(args?: MangaPromptArgs): string {
-    const basePrompt = args?.prompt || 'Manga page';
-    const style = args?.style || 'shonen';
-    const layout = args?.layout || 'square';
-    const isColor = args?.color || false;
-
-    let prompt = `${basePrompt}`;
-    
-    if (isColor) {
-         // Emphasize Color early to override "manga" bias
-         prompt += `, FULL COLOR ${style} style`;
-    } else {
-         prompt += `, ${style} manga style`;
-    }
-
-    prompt += `, ${layout} layout, professional art, high quality`;
-
-    if (!isColor) {
-      prompt += ', detailed ink work, screentones, black and white, traditional manga format';
-    } else {
-       prompt += ', vibrant colors, anime style coloring, digital painting';
-    }
-
-    if (layout === 'webtoon') {
-      prompt += ', vertical scrolling format';
-    }
 
     return prompt;
   }

@@ -604,6 +604,44 @@ export class ImageGenerator {
     return [...new Set(matches)]; // Return unique paths
   }
 
+  private detectColorRequirement(text: string): boolean | null {
+    const lowerText = text.toLowerCase();
+    
+    // Check for explicit "color" keywords
+    const colorKeywords = [
+        'full color', 
+        'generate in color', 
+        'colored manga', 
+        'vibrant colors', 
+        'anime style coloring',
+        'digital painting'
+    ];
+    
+    const bwKeywords = [
+        'black and white', 
+        'black & white', 
+        'b/w', 
+        'monochrome', 
+        'screentones',
+        'ink work',
+        'traditional manga style'
+    ];
+
+    // Priority 1: Check for "full color" or similar
+    if (colorKeywords.some(kw => lowerText.includes(kw))) {
+        console.error(`DEBUG - Auto-detected COLOR requirement in story text.`);
+        return true;
+    }
+
+    // Priority 2: Check for "black and white" or similar
+    if (bwKeywords.some(kw => lowerText.includes(kw))) {
+        console.error(`DEBUG - Auto-detected BLACK AND WHITE requirement in story text.`);
+        return false;
+    }
+
+    return null;
+  }
+
   private getAspectRatioInstruction(layout?: string): string {
     switch (layout) {
       case 'webtoon':
@@ -630,6 +668,41 @@ export class ImageGenerator {
       default:
         return '1:1';
     }
+  }
+
+  public static buildMangaPrompt(args: {
+    prompt?: string;
+    style?: string;
+    layout?: string;
+    color?: boolean;
+  }): string {
+    const basePrompt = args.prompt || 'Manga page';
+    const style = args.style || 'shonen';
+    const layout = args.layout || 'square';
+    const isColor = args.color || false;
+
+    let prompt = `${basePrompt}`;
+    
+    if (isColor) {
+         // Emphasize Color early to override "manga" bias
+         prompt += `, FULL COLOR ${style} style`;
+    } else {
+         prompt += `, ${style} manga style`;
+    }
+
+    prompt += `, ${layout} layout, professional art, high quality`;
+
+    if (!isColor) {
+      prompt += ', detailed ink work, screentones, black and white, traditional manga format';
+    } else {
+       prompt += ', vibrant colors, anime style coloring, digital painting';
+    }
+
+    if (layout === 'webtoon') {
+      prompt += ', vertical scrolling format';
+    }
+
+    return prompt;
   }
 
   private delay(ms: number): Promise<void> {
@@ -974,6 +1047,10 @@ export class ImageGenerator {
     try {
       // Handle Character Creation Mode
       if (request.createCharacter) {
+         const logMsg = `Character Creation Mode: Converting ${request.inputImage} for ${request.storyFile}`;
+         console.error(`DEBUG - ${logMsg}`);
+         await this.logToDisk(logMsg);
+         
          if (!request.inputImage || !request.storyFile) {
              return {
                  success: false,
@@ -981,8 +1058,6 @@ export class ImageGenerator {
                  error: 'Missing inputImage or storyFile',
              };
          }
-
-         console.error(`DEBUG - Character Creation Mode: Converting ${request.inputImage} for ${request.storyFile}`);
          
          const sourceFileRes = FileHandler.findInputFile(request.inputImage);
          if (!sourceFileRes.found) {
@@ -1204,7 +1279,9 @@ export class ImageGenerator {
 
       // Handle Directory Batch Processing
       if (request.inputDirectory) {
-        console.error(`DEBUG - Manga Directory Mode: Processing ${request.inputDirectory}`);
+        const logMsg = `Manga Directory Mode: Processing ${request.inputDirectory}. Color: ${request.color ? 'Yes' : 'No'}`;
+        console.error(`DEBUG - ${logMsg}`);
+        await this.logToDisk(logMsg);
         const dirResult = FileHandler.findInputDirectory(request.inputDirectory);
 
         if (!dirResult.found || dirResult.files.length === 0) {
@@ -1361,7 +1438,9 @@ export class ImageGenerator {
 
       // Handle Image Editing Mode (if inputImage is provided)
       if (request.inputImage) {
-        console.error(`DEBUG - Manga Edit Mode: Processing ${request.inputImage}`);
+        const logMsg = `Manga Edit Mode: Processing ${request.inputImage}. Color: ${request.color ? 'Yes' : 'No'}`;
+        console.error(`DEBUG - ${logMsg}`);
+        await this.logToDisk(logMsg);
         
         const fileResult = FileHandler.findInputFile(request.inputImage);
         if (!fileResult.found) {
@@ -1483,6 +1562,24 @@ export class ImageGenerator {
       const storyContent = await FileHandler.readTextFile(
         storyFileResult.filePath!,
       );
+
+      // Auto-detect color requirement from story text if not explicitly set to true
+      if (!request.color) {
+          const detectedColor = this.detectColorRequirement(storyContent);
+          if (detectedColor !== null) {
+              request.color = detectedColor;
+              // Re-build the prompt to reflect the detected color preference
+              request.prompt = ImageGenerator.buildMangaPrompt({
+                  prompt: request.prompt.split(',')[0], // Extract the original base prompt
+                  style: request.style,
+                  layout: request.layout,
+                  color: request.color
+              });
+              const msg = `Auto-detected ${request.color ? 'COLOR' : 'B&W'} preference from story file.`;
+              console.error(`DEBUG - ${msg}`);
+              await this.logToDisk(msg);
+          }
+      }
 
       // Memory File Setup
       const memoryPath = await MemoryHandler.getMemoryFilePath(storyFileResult.filePath!);
@@ -2845,7 +2942,7 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
             const logFile = path.join(logDir, 'nanobanana-output.log');
             const timestamp = new Date().toISOString();
             const aspectRatio = this.getAspectRatioString(request.layout);
-            const logEntry = `Generating ${page.header}. Aspect Ratio: ${aspectRatio}. Temperature: ${request.temperature ?? 'N/A'}. TopP: ${request.topP ?? 'N/A'}. Attached References: ${includedImages.join(', ')}`;
+            const logEntry = `Generating ${page.header}. Color: ${request.color ? 'Yes' : 'No'}. Aspect Ratio: ${aspectRatio}. Temperature: ${request.temperature ?? 'N/A'}. TopP: ${request.topP ?? 'N/A'}. Attached References: ${includedImages.join(', ')}`;
             
             await this.logToDisk(logEntry);
             console.error(`DEBUG - Logged attached references to ${logFile}`);
