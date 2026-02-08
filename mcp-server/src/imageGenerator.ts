@@ -1311,7 +1311,15 @@ export class ImageGenerator {
 
       // Handle Directory Batch Processing
       if (request.inputDirectory) {
-        const logMsg = `Manga Directory Mode: Processing ${request.inputDirectory}. Color: ${request.color ? 'Yes' : 'No'}`;
+        const q = {
+            score: request.minScore ?? 'Default',
+            likeness: request.minLikeness ?? 'Default',
+            story: request.minStory ?? 'Default',
+            continuity: request.minContinuity ?? 'Default',
+            lettering: request.minLettering ?? 'Default',
+            bubbles: request.minNoBubbles ?? 'Default'
+        };
+        const logMsg = `Manga Directory Mode: Processing ${request.inputDirectory}. Color: ${request.color ? 'Yes' : 'No'}. Thresholds: [Score: ${q.score}, Likeness: ${q.likeness}, Story: ${q.story}, Continuity: ${q.continuity}, Lettering: ${q.lettering}, Bubbles: ${q.bubbles}]`;
         console.error(`DEBUG - ${logMsg}`);
         await this.logToDisk(logMsg);
         const dirResult = FileHandler.findInputDirectory(request.inputDirectory);
@@ -1470,7 +1478,15 @@ export class ImageGenerator {
 
       // Handle Image Editing Mode (if inputImage is provided)
       if (request.inputImage) {
-        const logMsg = `Manga Edit Mode: Processing ${request.inputImage}. Color: ${request.color ? 'Yes' : 'No'}`;
+        const q = {
+            score: request.minScore ?? 'Default',
+            likeness: request.minLikeness ?? 'Default',
+            story: request.minStory ?? 'Default',
+            continuity: request.minContinuity ?? 'Default',
+            lettering: request.minLettering ?? 'Default',
+            bubbles: request.minNoBubbles ?? 'Default'
+        };
+        const logMsg = `Manga Edit Mode: Processing ${request.inputImage}. Color: ${request.color ? 'Yes' : 'No'}. Thresholds: [Score: ${q.score}, Likeness: ${q.likeness}, Story: ${q.story}, Continuity: ${q.continuity}, Lettering: ${q.lettering}, Bubbles: ${q.bubbles}]`;
         console.error(`DEBUG - ${logMsg}`);
         await this.logToDisk(logMsg);
         
@@ -2980,7 +2996,18 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
             const logFile = path.join(logDir, 'nanobanana-output.log');
             const timestamp = new Date().toISOString();
             const aspectRatio = this.getAspectRatioString(request.layout);
-            const logEntry = `Generating ${page.header}. Color: ${request.color ? 'Yes' : 'No'}. Aspect Ratio: ${aspectRatio}. Temperature: ${request.temperature ?? 'N/A'}. TopP: ${request.topP ?? 'N/A'}. Attached References: ${includedImages.join(', ')}`;
+            
+            // Format quality thresholds for logging
+            const q = {
+                score: request.minScore ?? 'Default',
+                likeness: request.minLikeness ?? 'Default',
+                story: request.minStory ?? 'Default',
+                continuity: request.minContinuity ?? 'Default',
+                lettering: request.minLettering ?? 'Default',
+                bubbles: request.minNoBubbles ?? 'Default'
+            };
+
+            const logEntry = `Generating ${page.header}. Color: ${request.color ? 'Yes' : 'No'}. Aspect Ratio: ${aspectRatio}. Temperature: ${request.temperature ?? 'N/A'}. TopP: ${request.topP ?? 'N/A'}. Thresholds: [Score: ${q.score}, Likeness: ${q.likeness}, Story: ${q.story}, Continuity: ${q.continuity}, Lettering: ${q.lettering}, Bubbles: ${q.bubbles}]. Attached References: ${includedImages.join(', ')}`;
             
             await this.logToDisk(logEntry);
             console.error(`DEBUG - Logged attached references to ${logFile}`);
