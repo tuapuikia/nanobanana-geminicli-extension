@@ -85,12 +85,12 @@ Parse this input and follow these steps IN ORDER:
 14. Check for natural language patterns specifying a character reference image, such as "using character [path]", "with character [path]", "char ref [path]", "using [path] as character". If found, extract the path and set it as the character_image parameter.
 15. Check for natural language patterns specifying an input image for editing, such as "edit image [path]", "using image [path]". If found, extract the path and set it as the input_image parameter.
 16. Check for natural language patterns specifying a story file (if not already found), such as "using script [path]", "from story [path]", "read [path]". If found, extract the path and set it as the story_file parameter.
-17. Check for natural language patterns specifying specific scores OR explicit flags:
-    - "likeness [number]" or "likeness score [number]" or "--likeness=[number]" -> set min_likeness parameter.
-    - "story [number]" or "story score [number]" or "--story=[number]" -> set min_story parameter.
-    - "continuity [number]" or "continuity score [number]" or "--continuity=[number]" -> set min_continuity parameter.
-    - "lettering [number]" or "lettering score [number]" or "--lettering=[number]" -> set min_lettering parameter.
-    - "no bubbles [number]" or "no bubbles score [number]" or "--no-bubbles=[number]" -> set min_no_bubbles parameter.
+17. Check for natural language patterns specifying specific scores OR explicit flags (Supports numbers 1-10 or keywords: ignore, lenient, balanced, strict, perfect):
+    - "likeness [value]" or "likeness score [value]" or "--likeness=[value]" -> set min_likeness parameter.
+    - "story [value]" or "story score [value]" or "--story=[value]" -> set min_story parameter.
+    - "continuity [value]" or "continuity score [value]" or "--continuity=[value]" -> set min_continuity parameter.
+    - "lettering [value]" or "lettering score [value]" or "--lettering=[value]" -> set min_lettering parameter.
+    - "no bubbles [value]" or "no bubbles score [value]" or "--no-bubbles=[value]" -> set min_no_bubbles parameter.
 18. Check for natural language patterns specifying temperature or topP:
     - "temperature [number]" or "temp [number]" or "--temperature=[number]" -> set temperature parameter.
     - "topP [number]" or "top p [number]" or "--topP=[number]" -> set topP parameter.

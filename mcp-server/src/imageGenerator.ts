@@ -642,6 +642,33 @@ export class ImageGenerator {
     return null;
   }
 
+  private parseScoreParameter(value: any, defaultValue: number): number {
+    if (value === undefined || value === null) return defaultValue;
+    if (typeof value === 'number') return value;
+    
+    const strValue = String(value).toLowerCase().trim();
+    
+    // Mapping keywords to 1-10 scale
+    const map: { [key: string]: number } = {
+        'ignore': 0,
+        'none': 0,
+        'very-lenient': 2,
+        'lenient': 4,
+        'balanced': 6,
+        'normal': 7,
+        'strict': 9,
+        'perfect': 10
+    };
+
+    if (map[strValue] !== undefined) {
+        console.error(`DEBUG - Translated natural language score "${strValue}" to ${map[strValue]}`);
+        return map[strValue];
+    }
+
+    const parsed = parseFloat(strValue);
+    return isNaN(parsed) ? defaultValue : parsed;
+  }
+
   private getAspectRatioInstruction(layout?: string): string {
     switch (layout) {
       case 'webtoon':
@@ -724,10 +751,16 @@ export class ImageGenerator {
         isColor?: boolean;
     } = { minScore: 8 }
   ): Promise<{ pass: boolean; score: number; reason: string; likeness_score?: number; lettering_score?: number }> {
-    const minScore = options.minScore || 8;
-    const { storyContext, minLikeness, minStory, minContinuity, isPhase1, isColor } = options;
+    const minScore = this.parseScoreParameter(options.minScore, 8);
+    const minLikeness = this.parseScoreParameter(options.minLikeness, 9);
+    const minStory = this.parseScoreParameter(options.minStory, 7);
+    const minContinuity = this.parseScoreParameter(options.minContinuity, 7);
+    const minLettering = this.parseScoreParameter(options.minLettering, 9.5);
+    const minNoBubbles = this.parseScoreParameter(options.minNoBubbles, 9.5);
+    
+    const { storyContext, isPhase1, isColor } = options;
 
-    console.error(`DEBUG - Auto-Reviewing generated image for character consistency (Min Score: ${minScore})...`);
+    console.error(`DEBUG - Auto-Reviewing generated image for character consistency (Min Total Score: ${minScore})...`);
     
     // Filter references to prioritize characters (based on path/name)
     const characterRefs = references.filter(ref => 
@@ -848,16 +881,14 @@ export class ImageGenerator {
         result.lettering_score = result.lettering_score ?? 0;
         result.reason = result.reason || "No reason provided.";
         
-        // Dynamic threshold based on minScore (1-10). Default 8 -> 320/400.
+        // Dynamic threshold based on minScore (1-10).
         const scoreThreshold = minScore * 40;
 
         // Specific thresholds
-        const thresholdLikeness = minLikeness ? minLikeness * 10 : 70; // Default 70% safety
-        const thresholdStory = minStory ? minStory * 10 : 70; // Default 70%
-        const thresholdContinuity = minContinuity ? minContinuity * 10 : 70; // Default 70%
-        const thresholdLettering = isPhase1 
-            ? (options.minNoBubbles ? options.minNoBubbles * 10 : (options.minLettering ? options.minLettering * 10 : 50))
-            : (options.minLettering ? options.minLettering * 10 : 95);
+        const thresholdLikeness = minLikeness * 10;
+        const thresholdStory = minStory * 10;
+        const thresholdContinuity = minContinuity * 10;
+        const thresholdLettering = isPhase1 ? (minNoBubbles * 10) : (minLettering * 10);
 
         // Enforce logic: Total score < threshold is a failure.
         const calculatedPass = 
@@ -866,6 +897,7 @@ export class ImageGenerator {
             result.story_score >= thresholdStory &&
             result.continuity_score >= thresholdContinuity &&
             (isPhase1 ? (result.no_bubbles_score >= thresholdLettering) : (result.lettering_score >= thresholdLettering));
+        
         
         const phaseLabel = isPhase1 ? "Art" : "Final";
         const specialScoreLabel = isPhase1 ? "NoBubbles" : "Lettering";

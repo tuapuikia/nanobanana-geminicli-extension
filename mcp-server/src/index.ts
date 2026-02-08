@@ -494,29 +494,29 @@ class NanoBananaServer {
                   default: false,
                 },
                 min_score: {
-                  type: 'number',
-                  description: 'Minimum score (1-10) required for auto-review to pass',
+                  type: ['number', 'string'],
+                  description: 'Minimum score (1-10) required for auto-review to pass. Supports natural language: ignore, lenient, balanced, strict, perfect.',
                   default: 8,
                 },
                 min_likeness: {
-                  type: 'number',
-                  description: 'Minimum likeness score required',
+                  type: ['number', 'string'],
+                  description: 'Minimum likeness score required. Supports natural language: ignore, lenient, balanced, strict, perfect.',
                 },
                 min_story: {
-                  type: 'number',
-                  description: 'Minimum story accuracy score required',
+                  type: ['number', 'string'],
+                  description: 'Minimum story accuracy score required. Supports natural language: ignore, lenient, balanced, strict, perfect.',
                 },
                 min_continuity: {
-                  type: 'number',
-                  description: 'Minimum continuity score required',
+                  type: ['number', 'string'],
+                  description: 'Minimum continuity score required. Supports natural language: ignore, lenient, balanced, strict, perfect.',
                 },
                 min_lettering: {
-                  type: 'number',
-                  description: 'Minimum lettering score required (Phase 2)',
+                  type: ['number', 'string'],
+                  description: 'Minimum lettering score required (Phase 2). Supports natural language: ignore, lenient, balanced, strict, perfect.',
                 },
                 min_no_bubbles: {
-                  type: 'number',
-                  description: 'Minimum no-bubbles score required (Phase 1)',
+                  type: ['number', 'string'],
+                  description: 'Minimum no-bubbles score required (Phase 1). Supports natural language: ignore, lenient, balanced, strict, perfect.',
                 },
                 retry_count: {
                   type: 'number',
