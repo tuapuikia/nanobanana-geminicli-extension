@@ -2975,38 +2975,50 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
             } else {
                 console.error(`DEBUG - Generating ${page.header} (Attempt ${attempt}/${maxRetries})...`);
                 
-                // Apply correction instruction if exists
-                if (correctionInstruction) {
-                    parts[0].text = originalPromptText + correctionInstruction;
-                    console.error(`DEBUG - Applied correction instruction to prompt.`);
-                }
+                            // Apply correction instruction if exists
+                            if (correctionInstruction) {
+                                parts[0].text = originalPromptText + correctionInstruction;
+                                console.error(`DEBUG - Applied correction instruction to prompt.`);
+                            }
                 
-                // Save Phase 1 Prompt (Before Generation)
-                try {
-                    const safeHeader = FileHandler.getSanitizedBaseName(page.header);
-                    const promptFile = path.join(promptsDir, `page_${safeHeader}_phase1_attempt${attempt}.txt`);
-                    await FileHandler.saveTextFile(promptFile, parts[0].text);
-                    const logMsg = `Saved Phase 1 Prompt to: ${path.basename(promptFile)}`;
-                    console.error(`DEBUG - ${logMsg}`);
-                    await this.logToDisk(logMsg);
-                } catch (e) { console.error('DEBUG - Failed to save Phase 1 prompt:', e); }
+                            // If temperature is high, add a reminder to stick to references
+                            if (request.temperature && request.temperature > 0.5) {
+                                const identityReminder = "\n\n[STRICT IDENTITY REMINDER]\nHigh creativity mode (Temperature) is active. You MUST NOT drift from the character's facial features or hairstyle in the reference images. Identity consistency is more important than creative variation.";
+                                if (!parts[0].text.includes(identityReminder)) {
+                                    parts[0].text += identityReminder;
+                                }
+                            }
+                            
+                            // Save Phase 1 Prompt (Before Generation)
+                            try {
+                                const safeHeader = FileHandler.getSanitizedBaseName(page.header);
+                                const promptFile = path.join(promptsDir, `page_${safeHeader}_phase1_attempt${attempt}.txt`);
+                                await FileHandler.saveTextFile(promptFile, parts[0].text);
+                                const logMsg = `Saved Phase 1 Prompt to: ${path.basename(promptFile)}`;
+                                console.error(`DEBUG - ${logMsg}`);
+                                await this.logToDisk(logMsg);
+                            } catch (e) { 
+                                console.error('DEBUG - Failed to save Phase 1 prompt:', e); 
+                            }
 
-                // Select model: Phase 1 (Art) uses artModel (2.5), Single Phase uses modelName (User Defined Env or Default Text Model)
-                const activeModel = request.twoPhase ? this.artModel : this.modelName;
-                console.error(`DEBUG - Active Model selected: ${activeModel} (TwoPhase: ${request.twoPhase})`);
+                            // Select model: Phase 1 (Art) uses artModel (2.5), Single Phase uses modelName (User Defined Env or Default Text Model)
+                            const activeModel = request.twoPhase ? this.artModel : this.modelName;
+                            console.error(`DEBUG - Active Model selected: ${activeModel} (TwoPhase: ${request.twoPhase})`);
 
-                try {
-                    const response = await this.ai.models.generateContent({
-                      model: activeModel,
-                      contents: [{ role: 'user', parts: parts }],
-                      config: {
-                        responseModalities: (request.twoPhase ? false : request.includeText) ? ['IMAGE', 'TEXT'] : ['IMAGE'],
-                        imageConfig: {
-                          aspectRatio: this.getAspectRatioString(request.layout),
-                        },
-                        safetySettings: this.getSafetySettings(),
-                      } as any,
-                    });
+                            try {
+                                const response = await this.ai.models.generateContent({
+                                    model: activeModel,
+                                    contents: [{ role: 'user', parts: parts }],
+                                    config: {
+                                        responseModalities: (request.twoPhase ? false : request.includeText) ? ['IMAGE', 'TEXT'] : ['IMAGE'],
+                                        imageConfig: {
+                                            aspectRatio: this.getAspectRatioString(request.layout),
+                                        },
+                                        safetySettings: this.getSafetySettings(),
+                                        temperature: request.temperature,
+                                        topP: request.topP,
+                                    } as any,
+                                });
             
                     if (response.candidates && response.candidates[0]?.content?.parts) {
                       for (const part of response.candidates[0].content.parts) {
