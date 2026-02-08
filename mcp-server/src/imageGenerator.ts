@@ -2644,6 +2644,8 @@ export class ImageGenerator {
         const originalIndex = pages.findIndex(p => p === page);
 
         console.error(`DEBUG - Processing ${page.header}...`);
+        await this.logToDisk(`--- Processing ${page.header} ---`);
+        await this.logToDisk(`Phase 1 (Art) Started`);
 
         // MEMORY CHECK
         const memory = await MemoryHandler.checkMemory(memoryPath, page.header);
@@ -2766,12 +2768,12 @@ export class ImageGenerator {
         const successPromptPath = path.join(promptsDir, `page_${safeHeader}_phase1_success.txt`);
         let usingSavedPrompt = false;
 
-        // Try to load existing successful prompt if valid
-        if (FileHandler.findInputFile(successPromptPath).found) {
+        // Try to load existing successful prompt if valid and requested
+        if (request.useMemory && FileHandler.findInputFile(successPromptPath).found) {
              try {
                  fullPrompt = await FileHandler.readTextFile(successPromptPath);
                  usingSavedPrompt = true;
-                 const msg = `Using saved successful prompt from: ${path.basename(successPromptPath)}`;
+                 const msg = `[MEMORY] Using saved successful prompt from: ${path.basename(successPromptPath)}`;
                  console.error(`DEBUG - ${msg}`);
                  await this.logToDisk(msg);
              } catch (e) { console.error('DEBUG - Failed to read success prompt:', e); }
@@ -2793,6 +2795,10 @@ export class ImageGenerator {
         }
 
         if (!usingSavedPrompt) {
+            const msg = `[FRESH] Generating new prompt for ${page.header} (Memory: ${request.useMemory ? 'Requested but not found' : 'Skipped by default'})`;
+            console.error(`DEBUG - ${msg}`);
+            await this.logToDisk(msg);
+            
             fullPrompt = `${request.prompt}, ${ratioInstruction}\n\n[GLOBAL CONTEXT]\n${globalContext}\n\n[CURRENT PAGE: ${page.header}]\n${page.content}`;
             
             if (failureData.reasons.length > 0) {
@@ -3139,6 +3145,7 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                               if (!phase1Review.pass) {
                                   const errorMsg = `Phase 1 Review FAILED for ${page.header} (Attempt ${attempt}). Score: ${phase1Review.score}/400. Reason: ${phase1Review.reason}.`;
                                   console.error(`❌ ${errorMsg}`);
+                                  await this.logToDisk(`Phase 1 (Art) FAILED: ${phase1Review.reason}`);
                                   await this.logToDisk(errorMsg);
                                   
                                   // Log Failure to Memory
@@ -3190,6 +3197,8 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                                             
                                                                               let finalPathForReview = fullPath;                      // Phase 2: Add Text & Color
                       if (request.twoPhase) {
+                          await this.logToDisk(`Phase 1 (Art) Completed`);
+                          await this.logToDisk(`Phase 2 (Final) Started`);
                           try {
                               // Collect all relevant references for Phase 2 (Colorization)
                               const phase2Refs = [...globalReferenceImages];
@@ -3213,8 +3222,10 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                                   phase1Warning,
                                   promptsDir
                               );
+                              await this.logToDisk(`Phase 2 (Final) Completed`);
                           } catch (e) {
                               console.error(`DEBUG - Phase 2 failed, falling back to Phase Art image for review.`, e);
+                              await this.logToDisk(`Phase 2 (Final) FAILED: ${e instanceof Error ? e.message : String(e)}`);
                           }
                       }
 
@@ -3277,7 +3288,12 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                           previousPagePath = finalPathForReview; // Update for next iteration
                           finalGeneratedPath = finalPathForReview;
                           attemptSuccess = true;
-                                                    const msg = `SUCCESS: Generated ${page.header} on attempt ${attempt}. Score: ${review.score}`;
+                          
+                          if (!request.twoPhase) {
+                              await this.logToDisk(`Single Phase Completed`);
+                          }
+
+                          const msg = `SUCCESS: Generated ${page.header} on attempt ${attempt}. Score: ${review.score}`;
                                                     console.error(`DEBUG - ${msg}`);
                                                     await this.logToDisk(msg);
                                                     

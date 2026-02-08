@@ -528,6 +528,11 @@ class NanoBananaServer {
                   description: 'Use two-phase generation: Art then Text. Disabled by default.',
                   default: false,
                 },
+                use_memory: {
+                  type: 'boolean',
+                  description: 'Use saved successful prompts from memory. Disabled by default.',
+                  default: false,
+                },
                 temperature: {
                   type: 'number',
                   description: 'Controls randomness in generation (0.0 to 1.0)',
@@ -706,6 +711,7 @@ class NanoBananaServer {
               minNoBubbles: args?.min_no_bubbles as number,
               retryCount: args?.retry_count as number,
               twoPhase: args?.two_phase !== undefined ? (args?.two_phase as boolean) : false,
+              useMemory: args?.use_memory !== undefined ? (args?.use_memory as boolean) : false,
               temperature: args?.temperature !== undefined ? (args?.temperature as number) : 0.5,
               topP: args?.topP !== undefined ? (args?.topP as number) : 0.85,
             };
