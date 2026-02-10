@@ -1169,7 +1169,7 @@ export class ImageGenerator {
              const layoutPrompt = request.layout === 'strip' ? 'Wide Landscape 16:9' : (request.layout === 'webtoon' ? 'Tall Vertical 9:16' : (request.layout === 'single_page' ? 'Portrait 3:4' : 'Square 1:1'));
              const viewsPrompt = request.layout === 'strip' ? 
                 `Include the following views: Front view, 3/4 view, Profile view, and Back view. Order them: Front, 3/4, Profile, Back side-by-side.` : 
-                `Composition: Split the image. Left Half: Full Body Standing Pose (3/4 View). Right Half Top: Close-up Face (3/4 View). Right Half Bottom: Back of Head/Upper Back View.`;
+                `Composition: Single Full Body Standing Pose (3/4 View), centered.`;
 
              const bwPrompt = `Character Design Sheet (${layoutPrompt}): ${sourceName}.
              Create a character design sheet with ${layoutPrompt} orientation.
@@ -1238,7 +1238,7 @@ export class ImageGenerator {
              const layoutPrompt = request.layout === 'strip' ? 'Wide Landscape 16:9' : (request.layout === 'webtoon' ? 'Tall Vertical 9:16' : (request.layout === 'single_page' ? 'Portrait 3:4' : 'Square 1:1'));
              const viewsPrompt = request.layout === 'strip' ? 
                 `Include the following views: Front view, 3/4 view, Profile view, and Back view. Order them: Front, 3/4, Profile, Back side-by-side.` : 
-                `Composition: Split the image. Left Half: Full Body Standing Pose (3/4 View). Right Half Top: Close-up Face (3/4 View). Right Half Bottom: Back of Head/Upper Back View.`;
+                `Composition: Single Full Body Standing Pose (3/4 View), centered.`;
 
              const colorPrompt = `Character Design Sheet (${layoutPrompt}): ${sourceName}.
              Create a character design sheet with ${layoutPrompt} orientation.
@@ -1911,7 +1911,7 @@ export class ImageGenerator {
                          const layoutPrompt = request.layout === 'strip' ? 'Wide Landscape 16:9' : (request.layout === 'webtoon' ? 'Tall Vertical 9:16' : (request.layout === 'single_page' ? 'Portrait 3:4' : 'Square 1:1'));
                          const viewsPrompt = request.layout === 'strip' ? 
                             `Include the following views: Front view, 3/4 view, Profile view, and Back view. Order them: Front, 3/4, Profile, Back side-by-side.` : 
-                            `Composition: Split the image. Left Half: Full Body Standing Pose (3/4 View). Right Half Top: Close-up Face (3/4 View). Right Half Bottom: Back of Head/Upper Back View.`;
+                            `Composition: Single Full Body Standing Pose (3/4 View), centered.`;
 
                          const bwPrompt = `Character Design Sheet (${layoutPrompt}): ${charName}. ${charDesc}. 
                          ${viewsPrompt}
@@ -1975,7 +1975,7 @@ export class ImageGenerator {
                                 const layoutPrompt = request.layout === 'strip' ? 'Wide Landscape 16:9' : (request.layout === 'webtoon' ? 'Tall Vertical 9:16' : (request.layout === 'single_page' ? 'Portrait 3:4' : 'Square 1:1'));
                                 const viewsPrompt = request.layout === 'strip' ? 
                                     `Include the following views: Front view, 3/4 view, Profile view, and Back view. Order them: Front, 3/4, Profile, Back side-by-side.` : 
-                                    `Composition: Split the image. Left Half: Full Body Standing Pose (3/4 View). Right Half Top: Close-up Face (3/4 View). Right Half Bottom: Back of Head/Upper Back View.`;
+                                    `Composition: Single Full Body Standing Pose (3/4 View), centered.`;
 
                                 const colorPrompt = `Character Design Sheet (${layoutPrompt}): ${charName}. ${charDesc}. 
                                 GENERATE IN FULL COLOR. Vibrant colors, detailed shading.
@@ -2172,7 +2172,7 @@ export class ImageGenerator {
                                                   const layoutPrompt = request.layout === 'strip' ? 'Wide Landscape 16:9' : (request.layout === 'webtoon' ? 'Tall Vertical 9:16' : (request.layout === 'single_page' ? 'Portrait 3:4' : 'Square 1:1'));
                                                   const viewsPrompt = request.layout === 'strip' ? 
                                                     `Include the following views: Front view, 3/4 view, Profile view, and Back view. Order them: Front, 3/4, Profile, Back side-by-side.` : 
-                                                    `Composition: Split the image. Left Half: Full Body Standing Pose (3/4 View). Right Half Top: Close-up Face (3/4 View). Right Half Bottom: Back of Head/Upper Back View.`;
+                                                    `Composition: Single Full Body Standing Pose (3/4 View), centered.`;
 
                                                   const bwPrompt = `Character Design Sheet (${layoutPrompt}): ${charName}. ${charDesc}.
                                                   ${viewsPrompt}
@@ -2222,7 +2222,7 @@ export class ImageGenerator {
                                 const layoutPrompt = request.layout === 'strip' ? 'Wide Landscape 16:9' : (request.layout === 'webtoon' ? 'Tall Vertical 9:16' : (request.layout === 'single_page' ? 'Portrait 3:4' : 'Square 1:1'));
                                 const viewsPrompt = request.layout === 'strip' ? 
                                     `Include the following views: Front view, 3/4 view, Profile view, and Back view. Order them: Front, 3/4, Profile, Back side-by-side.` : 
-                                    `Composition: Split the image. Left Half: Full Body Standing Pose (3/4 View). Right Half Top: Close-up Face (3/4 View). Right Half Bottom: Back of Head/Upper Back View.`;
+                                    `Composition: Single Full Body Standing Pose (3/4 View), centered.`;
 
                                 const colorPrompt = `Character Design Sheet (${layoutPrompt}): ${charName}. ${charDesc}. 
                                 GENERATE IN FULL COLOR. Vibrant colors, detailed shading.
