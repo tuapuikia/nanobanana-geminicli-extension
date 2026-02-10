@@ -1146,7 +1146,7 @@ export class ImageGenerator {
                         let charDesc = match[3].trim();
                         
                         // Look ahead for nested bullets and sub-headers
-                        const nextLinesStartIndex = match.index + match[0].length;
+                        const nextLinesStartIndex = (match.index ?? 0) + match[0].length;
                         const upcomingText = storyText.substring(nextLinesStartIndex);
                         const searchWindow = upcomingText.substring(0, 2000);
                         const lines = searchWindow.split('\n');
