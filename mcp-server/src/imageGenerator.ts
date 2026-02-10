@@ -3010,9 +3010,8 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
         }
 
         // LOGGING INCLUDED IMAGES
+        const includedImages: string[] = [];
         try {
-            const includedImages: string[] = [];
-            
             // Global Refs
             globalReferenceImages.forEach(img => includedImages.push(`Global Ref: ${path.basename(img.sourcePath)}`));
             
