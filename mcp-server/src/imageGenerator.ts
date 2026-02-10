@@ -1127,7 +1127,6 @@ export class ImageGenerator {
                 namePattern = namePattern.replace(/_/g, '[\\s_]+');
                 
                 // 1. Try Header Style FIRST (Prioritize definitions over dialogue)
-                // Matches: ### Name (Alias) \n Description
                 const headerRegex = new RegExp(
                     `(?:^|\\n)#{1,6}\\s*(${namePattern})(?:[^\\n]*)?\\n+([^#\\n][\\s\\S]*?)(?=\\n#|$)`,
                     'i'
@@ -1139,12 +1138,39 @@ export class ImageGenerator {
                     console.error(`DEBUG - Found Header description for ${sourceName}: ${characterDescription.substring(0, 50)}...`);
                 } else {
                     // 2. Try List Style: - **Name**: Description
-                    const listRegex = new RegExp(`(?:^|\\n)\\s*[\\*\\-]?\\s*\\*?\\*?(${namePattern})\\*?\\*?(?::)?\\s*([^\\n]+)`, 'i');
+                    const listRegex = new RegExp(`(?:^|\\n)(\\s*[\\*\\-]?\\s*\\*?\\*?(${namePattern})\\*?\\*?(?::)?\\s*)([^\\n]*)`, 'i');
                     match = storyText.match(listRegex);
                     
                     if (match) {
-                        characterDescription = match[2].trim();
-                        console.error(`DEBUG - Found List description for ${sourceName}: ${characterDescription}`);
+                        const fullMatchLine = match[1];
+                        let charDesc = match[3].trim();
+                        
+                        // Look ahead for nested bullets and sub-headers
+                        const nextLinesStartIndex = match.index + match[0].length;
+                        const upcomingText = storyText.substring(nextLinesStartIndex);
+                        const searchWindow = upcomingText.substring(0, 2000);
+                        const lines = searchWindow.split('\n');
+                        const descLines: string[] = [];
+                        const parentIndent = fullMatchLine.match(/^\s*/)?.[0].length || 0;
+
+                        for (const line of lines) {
+                            if (line.trim() === '') continue;
+                            const lineIndent = line.match(/^\s*/)?.[0].length || 0;
+                            
+                            // Stop if we hit a new top-level character definition or main section
+                            if (line.match(/^\s*[\*\-]\s*\*\*/) && lineIndent <= parentIndent) break;
+                            if (line.match(/^#[^#]/)) break; // Stop at level 1 headers
+                            
+                            descLines.push(line);
+                            if (descLines.length > 40) break;
+                        }
+                        
+                        if (descLines.length > 0) {
+                            charDesc += (charDesc ? '\n' : '') + descLines.join('\n');
+                        }
+                        
+                        characterDescription = charDesc.trim();
+                        console.error(`DEBUG - Found List description for ${sourceName} (${characterDescription.length} chars).`);
                     }
                 }
              } catch (e) {
@@ -1758,22 +1784,21 @@ export class ImageGenerator {
                  for (const line of lines) {
                      if (line.trim() === '') continue; // skip empty lines?
                      
-                     // Stop if we hit a new top-level character definition or section
+                     // Stop if we hit a new top-level character definition or main section
                      if (line.match(/^\s*[\*\-]\s*\*\*/)) {
                          const lineIndent = line.match(/^\s*/)?.[0].length || 0;
                          if (lineIndent <= parentIndent) {
                              break;
                          }
                      }
-                     if (line.match(/^#/)) break; // Section header
+                     if (line.match(/^#[^#]/)) break; // Stop ONLY at Level 1 headers
                      
-                     // Clean up bullet points
-                     // We try to remove common property keys to keep the description clean, but keeping them is also fine.
+                     // Clean up bullet points but keep sub-headers
                      const cleaned = line.replace(/^\s*[\*\-]\s*(?:\*\*(?:Role|Vibe|Personality|Visuals|Appearance|Traits|Outfit|Features):\*\*)?/g, '').trim();
                      if (cleaned) descLines.push(cleaned);
                      
                      // Safety break to prevent reading too much
-                     if (descLines.length > 20) break;
+                     if (descLines.length > 40) break;
                  }
                  if (descLines.length > 0) charDesc = descLines.join(' ');
             }
