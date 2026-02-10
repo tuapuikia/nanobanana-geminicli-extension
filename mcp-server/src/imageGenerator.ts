@@ -1171,12 +1171,19 @@ export class ImageGenerator {
                 `Include the following views: Front view, 3/4 view, Profile view, and Back view. Order them: Front, 3/4, Profile, Back side-by-side.` : 
                 `Composition: Close-up zoom in of the face and half-portrait pose (chest-up), centered.`;
 
+             const userPrompt = request.prompt && !request.prompt.toLowerCase().includes('character create') ? `\nUser Instructions: "${request.prompt}"` : '';
+
              const bwPrompt = `Character Design Sheet (${layoutPrompt}): ${sourceName}.
              Create a character design sheet with ${layoutPrompt} orientation.
-             IMPORTANT: You MUST use the attached reference photo as the PRIMARY source for the character's physical appearance (face, hair, clothing). The output character must look exactly like the person in the reference photo.
-             ${characterDescription ? `Story Context: "${characterDescription}". Merge these traits with the visual reference, but prioritize the reference image for physical likeness.` : ''}
+             IMPORTANT: You MUST use the attached reference photo as the PRIMARY source for the character's physical appearance (face, hair). 
+             ${characterDescription ? `Story Context: "${characterDescription}".` : ''}${userPrompt}
+             
+             [APPAREL & CLOTHING INSTRUCTION]
+             - If the Story Context or User Instructions specify a particular outfit (e.g. "black suit", "tuxedo"), you MUST use that outfit instead of the clothing in the photo.
+             - If no outfit is specified, follow the clothing in the photo.
+             
              ${viewsPrompt}
-             Capture the facial features, hairstyle, and clothing details from the photo accurately but stylized.
+             Capture the facial features and hairstyle from the photo accurately but stylized.
              ${request.style || 'shonen'} manga style, black and white, screentones, high quality line art.
              Half-portrait from the chest up, neutral pose, white background. Prioritize extreme detail on facial features and hair. Ensure the face is large and clearly visible in the frame. Avoid full body or small scale proportions. Zoom in to capture the personality and expression. Leave ample white space margin around the head to prevent cropping.`;
 
@@ -1236,10 +1243,17 @@ export class ImageGenerator {
                 `Include the following views: Front view, 3/4 view, Profile view, and Back view. Order them: Front, 3/4, Profile, Back side-by-side.` : 
                 `Composition: Close-up zoom in of the face and half-portrait pose (chest-up), centered.`;
 
+             const userPrompt = request.prompt && !request.prompt.toLowerCase().includes('character create') ? `\nUser Instructions: "${request.prompt}"` : '';
+
              const colorPrompt = `Character Design Sheet (${layoutPrompt}): ${sourceName}.
              Create a character design sheet with ${layoutPrompt} orientation.
              IMPORTANT: You MUST use the attached B&W character sheet as the STRICT reference for line art, pose, and design. Colorize it accurately.
-             ${characterDescription ? `Story Context: "${characterDescription}".` : ''}
+             ${characterDescription ? `Story Context: "${characterDescription}".` : ''}${userPrompt}
+             
+             [COLOR & CLOTHING INSTRUCTION]
+             - Match the hair and eye color described in the Story Context or User Instructions.
+             - If a specific outfit color is mentioned (e.g. "black suit"), apply it.
+             
              The output must match the B&W reference exactly in terms of poses and layout.
              ${viewsPrompt}
              Capture the facial features, hairstyle, and clothing details from the reference accurately.

@@ -61,7 +61,7 @@ Parse this input and follow these steps IN ORDER:
    - If Case A or Case B matched:
      - Map story file to --file logic (story_file parameter).
      - Map input image to --image logic (input_image parameter).
-     - Ignore the main prompt extraction logic.
+     - Extract any remaining text (not part of the file/image/command) as the main prompt.
 
 3. **(Standard Logic) If neither of the above matched fully:**
      - Extract the main prompt (text before any options, optional description).
