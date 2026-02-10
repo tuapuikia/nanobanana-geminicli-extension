@@ -713,7 +713,7 @@ class NanoBananaServer {
               twoPhase: args?.two_phase !== undefined ? (args?.two_phase as boolean) : false,
               useMemory: args?.use_memory !== undefined ? (args?.use_memory as boolean) : false,
               temperature: args?.temperature !== undefined ? (args?.temperature as number) : 0.5,
-              topP: args?.topP !== undefined ? (args?.topP as number) : 0.85,
+              topP: args?.topP !== undefined ? (args?.topP as number) : 0.95,
             };
             response = await this.imageGenerator.generateMangaPage(mangaRequest);
             break;
