@@ -840,7 +840,7 @@ export class ImageGenerator {
 
         // Add References (Pass ALL references now, including environments)
         for (const ref of references) {
-            const label = path.basename(ref.sourcePath);
+            const label = path.basename(ref.sourcePath, path.extname(ref.sourcePath));
             parts.push({ text: `Reference (${label}):` });
             parts.push({ inlineData: { data: ref.data, mimeType: ref.mimeType } });
         }
@@ -1029,7 +1029,7 @@ export class ImageGenerator {
 
         // Add References for Colorization/Context
         for (const ref of references) {
-            const label = path.basename(ref.sourcePath, path.extname(ref.sourcePath)).replace(/_/g, ' ');
+            const label = path.basename(ref.sourcePath, path.extname(ref.sourcePath));
             parts.push({ text: `Reference image for: "${label}"` });
             parts.push({ inlineData: { data: ref.data, mimeType: ref.mimeType } });
         }
@@ -2938,10 +2938,10 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
             
             // Global Refs
             for (const img of globalReferenceImages) {
-                const label = path.basename(img.sourcePath, path.extname(img.sourcePath)).replace(/_/g, ' ');
+                const label = path.basename(img.sourcePath, path.extname(img.sourcePath));
                 // Simple heuristic: "kenji_portrait" -> Tag: "kenji"
                 // "unity_hq_far" -> Tag: "unity hq"
-                const tag = label.replace(/\s+(portrait|sheet|reference|ref|far|view|env|environment)$/i, '').trim();
+                const tag = label.replace(/[_\s]+(portrait|sheet|reference|ref|far|view|env|environment)$/i, '').trim().replace(/_/g, ' ');
                 referenceTags += `- Tag: "${tag}" matches Reference Image: "${label}"\n`;
             }
 
@@ -2950,8 +2950,8 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                 if (globalImagePaths.includes(imgPath)) continue;
                  const fileRes = FileHandler.findInputFile(imgPath);
                  if (fileRes.found) {
-                    const label = path.basename(fileRes.filePath!, path.extname(fileRes.filePath!)).replace(/_/g, ' ');
-                    const tag = label.replace(/\s+(portrait|sheet|reference|ref|far|view|env|environment)$/i, '').trim();
+                    const label = path.basename(fileRes.filePath!, path.extname(fileRes.filePath!));
+                    const tag = label.replace(/[_\s]+(portrait|sheet|reference|ref|far|view|env|environment)$/i, '').trim().replace(/_/g, ' ');
                     referenceTags += `- Tag: "${tag}" matches Reference Image: "${label}"\n`;
                  }
             }
@@ -2972,7 +2972,7 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
 
         // Add Global References with Labels
         for (const img of globalReferenceImages) {
-            const label = path.basename(img.sourcePath, path.extname(img.sourcePath)).replace(/_/g, ' ');
+            const label = path.basename(img.sourcePath, path.extname(img.sourcePath));
             parts.push({ text: `Reference image for: "${label}"` });
             parts.push({ inlineData: { data: img.data, mimeType: img.mimeType } });
         }
@@ -2986,7 +2986,7 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
             if (fileRes.found) {
                 try {
                     const b64 = await FileHandler.readImageAsBase64(fileRes.filePath!);
-                    const label = path.basename(fileRes.filePath!, path.extname(fileRes.filePath!)).replace(/_/g, ' ');
+                    const label = path.basename(fileRes.filePath!, path.extname(fileRes.filePath!));
                     parts.push({ text: `Reference image for: "${label}"` });
                     parts.push({ inlineData: { data: b64, mimeType: 'image/png' } });
                     console.error(`DEBUG - Loaded page reference: ${imgPath}`);
