@@ -541,6 +541,11 @@ class NanoBananaServer {
                   type: 'number',
                   description: 'Controls diversity of generation (0.0 to 1.0)',
                 },
+                show_tags: {
+                  type: 'boolean',
+                  description: 'Show the list of tags that will be generated and used for the story file',
+                  default: false,
+                },
               },
               required: [],
             },
@@ -714,6 +719,7 @@ class NanoBananaServer {
               useMemory: args?.use_memory !== undefined ? (args?.use_memory as boolean) : false,
               temperature: args?.temperature !== undefined ? (args?.temperature as number) : 0.5,
               topP: args?.topP !== undefined ? (args?.topP as number) : 0.95,
+              showTags: args?.show_tags as boolean,
             };
             response = await this.imageGenerator.generateMangaPage(mangaRequest);
             break;

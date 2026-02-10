@@ -45,6 +45,7 @@ export interface ImageGenerationRequest {
   useMemory?: boolean;
   temperature?: number;
   topP?: number;
+  showTags?: boolean;
 }
 
 export interface ImageGenerationResponse {
@@ -126,4 +127,7 @@ export interface MangaPromptArgs {
   min_no_bubbles?: number;
   retry_count?: number;
   two_phase?: boolean;
+  temperature?: number;
+  top_p?: number;
+  show_tags?: boolean;
 }

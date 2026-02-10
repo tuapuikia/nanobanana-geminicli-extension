@@ -2687,6 +2687,51 @@ export class ImageGenerator {
         }
       }
 
+      // Check for Tag Show Mode
+      if (request.showTags) {
+          let tagOutput = `[STRICT REFERENCE MAPPING FOR: ${request.storyFile}]\n\n`;
+          const allTags: { tag: string, label: string }[] = [];
+          
+          // Global Tags
+          for (const img of globalReferenceImages) {
+              const label = path.basename(img.sourcePath, path.extname(img.sourcePath));
+              const tag = label.replace(/[_\s]+(portrait|sheet|reference|ref|far|view|env|environment)$/i, '').trim().replace(/_/g, ' ');
+              allTags.push({ tag, label });
+          }
+
+          // Page Specific Tags (collect from all pages to be thorough)
+          const seenPagePaths = new Set<string>();
+          for (const p of pages) {
+              const paths = this.extractImagePaths(p.content);
+              for (const imgPath of paths) {
+                  if (globalImagePaths.includes(imgPath) || seenPagePaths.has(imgPath)) continue;
+                  const fileRes = FileHandler.findInputFile(imgPath);
+                  if (fileRes.found) {
+                      const label = path.basename(fileRes.filePath!, path.extname(fileRes.filePath!));
+                      const tag = label.replace(/[_\s]+(portrait|sheet|reference|ref|far|view|env|environment)$/i, '').trim().replace(/_/g, ' ');
+                      allTags.push({ tag, label });
+                      seenPagePaths.add(imgPath);
+                  }
+              }
+          }
+
+          if (allTags.length === 0) {
+              return { success: true, message: "No tags or reference images found in story file." };
+          }
+
+          allTags.forEach(t => {
+              tagOutput += `- Tag: "${t.tag}" matches Reference Image: "${t.label}"\n`;
+          });
+
+          tagOutput += `\n[USAGE TIPS]\n`;
+          tagOutput += `1. Use "(Tag: name)" in your panel descriptions to link an entity to its reference image.\n`;
+          tagOutput += `2. Example: "Stan (Tag: stan) is sitting at his Singapore Office (Tag: singapore office env)."\n`;
+          tagOutput += `3. The Tag name is case-insensitive but must match the spelling in the quotes above exactly.\n`;
+          tagOutput += `4. For maximum consistency, use the Tag at the first mention of the entity in every panel.`;
+
+          return { success: true, message: tagOutput };
+      }
+
       // Iterate through pages
       for (let i = 0; i < pagesToProcess.length; i++) {
         const page = pagesToProcess[i];

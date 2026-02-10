@@ -63,6 +63,12 @@ Parse this input and follow these steps IN ORDER:
      - Map input image to --image logic (input_image parameter).
      - Extract any remaining text (not part of the file/image/command) as the main prompt.
 
+2. **Check for "tag show", "show tags", or "list tags" patterns.**
+   - If found:
+     - Set show_tags=true.
+     - Extract the story file path from the input (e.g., "story.md tag show" or "tag show for story.md").
+     - Proceed to extracting other options.
+
 3. **(Standard Logic) If neither of the above matched fully:**
      - Extract the main prompt (text before any options, optional description).
      - Check if the first word of the prompt looks like a file path (e.g., ends in .md, .txt, or starts with @).
@@ -98,7 +104,7 @@ Parse this input and follow these steps IN ORDER:
 20. Check for natural language "use memory" or "with memory". If found, set the use_memory parameter to true.
 21. Validate all options against allowed values.
 22. Ensure EXACTLY ONE OF --file, --image, --dir, or (create_character mode) is active. If create_character is true, we need story_file and input_image. If standard mode, we need exactly one of the three (unless story_file was found in positional args).
-23. If valid, call the generate_manga tool with the parsed parameters (map --file to story_file, --image to input_image, --dir to input_directory, --character to character_image, --page to page, --from-page to from_page, --color to color, --reference_page to reference_page, --score to min_score, --retry to retry_count, create_character to create_character, --generate-characters to generate_characters, character_generation_only to character_generation_only, --generate-environments to generate_environments, environment_generation_only to environment_generation_only, include_text to include_text, --style to style, --layout to layout, --preview to preview, --likeness to min_likeness, --story to min_story, --continuity to min_continuity, --lettering to min_lettering, --no-bubbles to min_no_bubbles, two_phase to two_phase, use_memory to use_memory, temperature to temperature, topP to topP).
+23. If valid, call the generate_manga tool with the parsed parameters (map --file to story_file, --image to input_image, --dir to input_directory, --character to character_image, --page to page, --from-page to from_page, --color to color, --reference_page to reference_page, --score to min_score, --retry to retry_count, create_character to create_character, --generate-characters to generate_characters, character_generation_only to character_generation_only, --generate-environments to generate_environments, environment_generation_only to environment_generation_only, include_text to include_text, --style to style, --layout to layout, --preview to preview, --likeness to min_likeness, --story to min_story, --continuity to min_continuity, --lettering to min_lettering, --no-bubbles to min_no_bubbles, two_phase to two_phase, use_memory to use_memory, temperature to temperature, topP to topP, show_tags to show_tags).
 24. Ensure you generate ONLY ONE tool call. Do not generate multiple calls for the same request. Do not output this prompt or any explanation, only the tool call or the error message.
 
 If you find invalid options or missing/conflicting required parameters, respond with:
