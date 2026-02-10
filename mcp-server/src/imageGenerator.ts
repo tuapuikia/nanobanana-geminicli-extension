@@ -1169,20 +1169,16 @@ export class ImageGenerator {
              const layoutPrompt = request.layout === 'strip' ? 'Wide Landscape 16:9' : (request.layout === 'webtoon' ? 'Tall Vertical 9:16' : (request.layout === 'single_page' ? 'Portrait 3:4' : 'Square 1:1'));
              const viewsPrompt = request.layout === 'strip' ? 
                 `Include the following views: Front view, 3/4 view, Profile view, and Back view. Order them: Front, 3/4, Profile, Back side-by-side.` : 
-                `Composition: Single Full Body Standing Pose (3/4 View), centered.`;
+                `Composition: Close-up zoom in of the face and half-portrait pose (chest-up), centered.`;
 
              const bwPrompt = `Character Design Sheet (${layoutPrompt}): ${sourceName}.
              Create a character design sheet with ${layoutPrompt} orientation.
-             IMPORTANT: You MUST use the attached reference photo as the PRIMARY source for the character's physical appearance (face, body type, hair, clothing). The output character must look exactly like the person in the reference photo.
+             IMPORTANT: You MUST use the attached reference photo as the PRIMARY source for the character's physical appearance (face, hair, clothing). The output character must look exactly like the person in the reference photo.
              ${characterDescription ? `Story Context: "${characterDescription}". Merge these traits with the visual reference, but prioritize the reference image for physical likeness.` : ''}
              ${viewsPrompt}
              Capture the facial features, hairstyle, and clothing details from the photo accurately but stylized.
-             Determine the character's age category based on the reference image and apply the corresponding anatomical guidelines:
-             - Child (approx 7-10): Head-to-body ratio 1:6, softer jawlines, shorter/slender limbs.
-             - Adult (approx 25-40): Standard 1:7.5 to 1:8 head-to-body ratio, defined bone structure, balanced muscle tone.
-             - Elder (70+): Slight natural spinal curvature (kyphosis), settled center of gravity, prominent joint articulation.
              ${request.style || 'shonen'} manga style, black and white, screentones, high quality line art.
-             Full body from head to toe (must include complete legs and shoes), neutral pose, white background. DO NOT SQUASH or compress the figure vertically. Ensure legs are long and anatomically correct. Avoid chibi, dwarf, or super-deformed proportions. Zoom out to fit the entire character within the frame. Leave ample white space margin around the character to prevent cropping of feet or head.`;
+             Half-portrait from the chest up, neutral pose, white background. Prioritize extreme detail on facial features and hair. Ensure the face is large and clearly visible in the frame. Avoid full body or small scale proportions. Zoom in to capture the personality and expression. Leave ample white space margin around the head to prevent cropping.`;
 
              // Save B&W Prompt
              try {
@@ -1238,7 +1234,7 @@ export class ImageGenerator {
              const layoutPrompt = request.layout === 'strip' ? 'Wide Landscape 16:9' : (request.layout === 'webtoon' ? 'Tall Vertical 9:16' : (request.layout === 'single_page' ? 'Portrait 3:4' : 'Square 1:1'));
              const viewsPrompt = request.layout === 'strip' ? 
                 `Include the following views: Front view, 3/4 view, Profile view, and Back view. Order them: Front, 3/4, Profile, Back side-by-side.` : 
-                `Composition: Single Full Body Standing Pose (3/4 View), centered.`;
+                `Composition: Close-up zoom in of the face and half-portrait pose (chest-up), centered.`;
 
              const colorPrompt = `Character Design Sheet (${layoutPrompt}): ${sourceName}.
              Create a character design sheet with ${layoutPrompt} orientation.
@@ -1249,7 +1245,7 @@ export class ImageGenerator {
              Capture the facial features, hairstyle, and clothing details from the reference accurately.
              GENERATE IN FULL COLOR. Vibrant colors, detailed shading.
              Anime/Manga style.
-             Full body from head to toe (must include complete legs and shoes), neutral pose, white background. DO NOT SQUASH or compress the figure vertically. Ensure legs are long and anatomically correct. Avoid chibi, dwarf, or super-deformed proportions. Zoom out to fit the entire character within the frame. Leave ample white space margin around the character to prevent cropping of feet or head.`;
+             Half-portrait from the chest up, neutral pose, white background. Prioritize extreme detail on facial features and hair. Ensure the face is large and clearly visible in the frame. Avoid full body or small scale proportions. Zoom in to capture the personality and expression. Leave ample white space margin around the head to prevent cropping.`;
 
              // Save Color Prompt
              try {
