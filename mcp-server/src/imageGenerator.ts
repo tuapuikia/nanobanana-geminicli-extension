@@ -1060,8 +1060,8 @@ export class ImageGenerator {
                     const newPath = path.join(dir, newFileName);
                     await FileHandler.saveImageFromBase64(b64, dir, newFileName);
                     
-                    await this.logGeneration(this.textModel, [newPath], `Phase 2 (Lettering) for ${pageHeader}`);
-                    console.error(`DEBUG - Phase 2 SUCCESS: Saved final image to ${newPath}`);
+                    await this.logGeneration(this.textModel, [newPath], `Phase 2 (Lettering) for ${pageHeader}. Total: ${references.length} references.`);
+                    console.error(`DEBUG - Phase 2 SUCCESS: Saved final image to ${newPath}. (Used ${references.length} references)`);
                     return newPath;
                 }
             }
@@ -3042,10 +3042,10 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                 bubbles: request.minNoBubbles ?? 'Default'
             };
 
-            const logEntry = `Generating ${page.header}. Color: ${request.color ? 'Yes' : 'No'}. Aspect Ratio: ${aspectRatio}. Temperature: ${request.temperature ?? 'N/A'}. TopP: ${request.topP ?? 'N/A'}. Thresholds: [Score: ${q.score}, Likeness: ${q.likeness}, Story: ${q.story}, Continuity: ${q.continuity}, Lettering: ${q.lettering}, Bubbles: ${q.bubbles}]. Attached References: ${includedImages.join(', ')}`;
+            const logEntry = `Generating ${page.header}. Color: ${request.color ? 'Yes' : 'No'}. Aspect Ratio: ${aspectRatio}. Temperature: ${request.temperature ?? 'N/A'}. TopP: ${request.topP ?? 'N/A'}. Thresholds: [Score: ${q.score}, Likeness: ${q.likeness}, Story: ${q.story}, Continuity: ${q.continuity}, Lettering: ${q.lettering}, Bubbles: ${q.bubbles}]. Total: ${includedImages.length} references attached. Attached References: ${includedImages.join(', ')}`;
             
             await this.logToDisk(logEntry);
-            console.error(`DEBUG - Logged attached references to ${logFile}`);
+            console.error(`DEBUG - Total: ${includedImages.length} reference images attached for ${page.header}: ${includedImages.join(', ')}`);
             console.error(`DEBUG - Generating with Aspect Ratio: ${aspectRatio}`);
 
         } catch (e) {
@@ -3146,7 +3146,7 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                           await this.logGeneration(
                               activeModel, 
                               [fullPath], 
-                              request.twoPhase ? `Phase 1 (Art) for ${page.header}` : `Single Phase for ${page.header}`
+                              request.twoPhase ? `Phase 1 (Art) for ${page.header}. Total: ${includedImages.length} references.` : `Single Phase for ${page.header}. Total: ${includedImages.length} references.`
                           );
                           imageSaved = true;
                           break;
