@@ -13,8 +13,8 @@
     "test": "echo \"No tests specified\" && exit 0"
   },
   "dependencies": {
-    "@google/genai": "^1.17.0",
-    "@modelcontextprotocol/sdk": "^1.0.0"
+    "@google/genai": "^1.40.0",
+    "@modelcontextprotocol/sdk": "^1.26.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
