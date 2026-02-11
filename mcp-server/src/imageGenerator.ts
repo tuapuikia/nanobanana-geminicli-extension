@@ -140,17 +140,21 @@ export class ImageGenerator {
   }
 
   static validateAuthentication(): AuthConfig {
+    console.error('DEBUG - Validating authentication...');
+
     const nanoGeminiKey = process.env.NANOBANANA_GEMINI_API_KEY;
     if (nanoGeminiKey) {
       console.error('✓ Found NANOBANANA_GEMINI_API_KEY environment variable');
       return { apiKey: nanoGeminiKey, keyType: 'GEMINI_API_KEY' };
     }
+    console.error('DEBUG - NANOBANANA_GEMINI_API_KEY not found');
 
     const nanoGoogleKey = process.env.NANOBANANA_GOOGLE_API_KEY;
     if (nanoGoogleKey) {
       console.error('✓ Found NANOBANANA_GOOGLE_API_KEY environment variable');
       return { apiKey: nanoGoogleKey, keyType: 'GOOGLE_API_KEY' };
     }
+    console.error('DEBUG - NANOBANANA_GOOGLE_API_KEY not found');
 
     const geminiKey = process.env.GEMINI_API_KEY;
     if (geminiKey) {
@@ -159,6 +163,7 @@ export class ImageGenerator {
       );
       return { apiKey: geminiKey, keyType: 'GEMINI_API_KEY' };
     }
+    console.error('DEBUG - GEMINI_API_KEY not found');
 
     const googleKey = process.env.GOOGLE_API_KEY;
     if (googleKey) {
@@ -167,6 +172,7 @@ export class ImageGenerator {
       );
       return { apiKey: googleKey, keyType: 'GOOGLE_API_KEY' };
     }
+    console.error('DEBUG - GOOGLE_API_KEY not found');
 
     throw new Error(
       'ERROR: No valid API key found. Please set NANOBANANA_GEMINI_API_KEY, NANOBANANA_GOOGLE_API_KEY, GEMINI_API_KEY, or GOOGLE_API_KEY environment variable.\n' +

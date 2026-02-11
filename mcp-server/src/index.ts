@@ -46,6 +46,7 @@ class NanoBananaServer {
       const authConfig = ImageGenerator.validateAuthentication();
       this.imageGenerator = new ImageGenerator(authConfig);
     } catch (error: unknown) {
+      console.error('DEBUG - Server initialization failed:', error);
       this.initializationError =
         error instanceof Error ? error : new Error(String(error));
     }

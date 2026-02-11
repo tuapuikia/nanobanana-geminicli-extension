@@ -6,13 +6,7 @@
     "nanobanana": {
       "command": "node",
       "args": ["${extensionPath}/mcp-server/dist/index.js"],
-      "env": {
-        "GEMINI_API_KEY": "${env:GEMINI_API_KEY}",
-        "NANOBANANA_GEMINI_API_KEY": "${env:NANOBANANA_GEMINI_API_KEY}",
-        "GOOGLE_API_KEY": "${env:GOOGLE_API_KEY}",
-        "NANOBANANA_GOOGLE_API_KEY": "${env:NANOBANANA_GOOGLE_API_KEY}",
-        "NANOBANANA_MODEL": "${env:NANOBANANA_MODEL}"
-      }
+      "env": {}
     }
   },
   "contextFileName": "GEMINI.md"
