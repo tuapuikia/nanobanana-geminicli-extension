@@ -547,6 +547,10 @@ class NanoBananaServer {
                   description: 'Show the list of tags that will be generated and used for the story file',
                   default: false,
                 },
+                review_model: {
+                  type: 'string',
+                  description: 'Specific model name to use for the auto-review process (e.g., "gemini-3.1-flash-image-preview")',
+                },
               },
               required: [],
             },
@@ -721,6 +725,7 @@ class NanoBananaServer {
               temperature: args?.temperature !== undefined ? (args?.temperature as number) : 0.5,
               topP: args?.topP !== undefined ? (args?.topP as number) : 0.95,
               showTags: args?.show_tags as boolean,
+              reviewModel: args?.review_model as string,
             };
             response = await this.imageGenerator.generateMangaPage(mangaRequest);
             break;

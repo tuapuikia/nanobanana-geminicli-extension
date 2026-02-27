@@ -46,9 +46,14 @@ The `gemini-3.1-flash-image-preview` model is the default model.
 
 To use the new Gemini 3 Pro powered model set the `NANOBANANA_MODEL` environment variable to `gemini-3-pro-image-preview`.
 
+For text generation, lettering, and auto-review (used in `/manga`), the default model is also `gemini-3.1-flash-image-preview`. You can override it using the `NANOBANANA_TEXT_MODEL` environment variable:
+
 ```bash
 export NANOBANANA_MODEL=gemini-3-pro-image-preview
+export NANOBANANA_TEXT_MODEL=gemini-3-pro-image-preview
 ```
+
+Alternatively, use the `--review-model` flag with the `/manga` command to specify a model for a single request.
 
 ## 🚀 Installation
 
@@ -71,6 +76,7 @@ Restart the Gemini CLI. The following commands will be available:
 - `/pattern` - Generate seamless patterns and textures for backgrounds
 - `/story` - Generate sequential images that tell a visual story or process
 - `/diagram` - Generate technical diagrams, flowcharts, and architectural mockups
+- `/manga` - Professional manga production (Art, Lettering, Color, and Auto-Review)
 - `/nanobanana` - Natural language interface
 
 ## 💡 Usage
@@ -352,6 +358,40 @@ The `/diagram` command generates professional technical diagrams, flowcharts, an
 
 # Database design
 /diagram "social media database schema" --type="database" --annotations="detailed"
+```
+
+## 🎋 Manga Production
+
+The `/manga` command is a powerful, multi-phase production pipeline for creating professional-quality manga pages from a story script. It handles everything from character consistency to lettering and auto-review.
+
+### Manga Options
+
+**`--file="path/to/story.md"`** - The markdown script file (required for generation)
+**`--image="path/to/page.png"`** - Input image for editing/refining an existing page
+**`--dir="path/to/directory"`** - Batch process all pages in a directory
+**`--character="path/to/char.png"`** - Use a specific image for character consistency
+**`--style="shonen|shojo|seinen|4-koma|webtoon"`** - Manga style (default: shonen)
+**`--layout="single_page|strip|webtoon|square"`** - Page layout (default: square)
+**`--two-phase`** - Use two-phase generation (Art Phase then Text/Lettering Phase)
+**`--color`** - Generate in full color instead of traditional black and white
+**`--review-model="model-name"`** - Specify which model to use for auto-review (default: `gemini-3.1-flash-image-preview`)
+**`--score=N`** - Minimum passing score for auto-review (1-10, default: 8)
+**`--retry=N`** - Maximum retry attempts if auto-review fails (default: 3)
+
+### Manga Examples
+
+```bash
+# Generate a single page from a script
+/manga --file="chapters/one.md" --page="Page 1" --two-phase
+
+# Batch generate an entire chapter
+/manga --file="chapters/one.md" --from-page="1" --two-phase --color
+
+# Specify a custom model for the review process
+/manga --file="script.md" --review-model="gemini-3.1-flash-image-preview"
+
+# Natural language interface
+/manga "generate page 2 from story.md using my character.png in shojo style"
 ```
 
 ## 📁 File Management

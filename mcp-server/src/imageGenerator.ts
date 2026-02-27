@@ -26,7 +26,7 @@ export class ImageGenerator {
   private artModel: string;
   private textModel: string;
   private static readonly DEFAULT_MODEL = 'gemini-3.1-flash-image-preview';
-  private static readonly DEFAULT_TEXT_MODEL = 'gemini-3-pro-image-preview';
+  private static readonly DEFAULT_TEXT_MODEL = 'gemini-3.1-flash-image-preview';
 
   constructor(authConfig: AuthConfig) {
     this.ai = new GoogleGenAI({
@@ -755,6 +755,7 @@ export class ImageGenerator {
         storyContext?: string;
         isPhase1?: boolean;
         isColor?: boolean;
+        reviewModel?: string;
     } = { minScore: 8 }
   ): Promise<{ pass: boolean; score: number; reason: string; likeness_score?: number; lettering_score?: number }> {
     const minScore = this.parseScoreParameter(options.minScore, 8);
@@ -763,10 +764,11 @@ export class ImageGenerator {
     const minContinuity = this.parseScoreParameter(options.minContinuity, 7);
     const minLettering = this.parseScoreParameter(options.minLettering, 9.5);
     const minNoBubbles = this.parseScoreParameter(options.minNoBubbles, 9.5);
+    const reviewModel = options.reviewModel || this.textModel;
     
     const { storyContext, isPhase1, isColor } = options;
 
-    console.error(`DEBUG - Auto-Reviewing generated image for character consistency (Min Total Score: ${minScore})...`);
+    console.error(`DEBUG - Auto-Reviewing generated image using ${reviewModel} (Min Total Score: ${minScore})...`);
     
     // Filter references to prioritize characters (based on path/name)
     const characterRefs = references.filter(ref => 
@@ -852,7 +854,7 @@ export class ImageGenerator {
         }
 
         const response = await this.ai.models.generateContent({
-            model: this.textModel, 
+            model: reviewModel, 
             config: {
                 responseModalities: ['TEXT'],
                 responseMimeType: 'application/json',
@@ -909,7 +911,7 @@ export class ImageGenerator {
         const specialScoreLabel = isPhase1 ? "NoBubbles" : "Lettering";
         const specialScoreValue = isPhase1 ? result.no_bubbles_score : result.lettering_score;
 
-        const logMsg = `[Auto-Review ${phaseLabel}] Model: ${this.textModel}. Total: ${result.total_score}/400% (Likeness: ${result.likeness_score}%, Continuity: ${result.continuity_score}%, Story: ${result.story_score}%, ${specialScoreLabel}: ${specialScoreValue}%). Threshold: ${scoreThreshold}% & Likeness >= ${thresholdLikeness}% & ${specialScoreLabel} >= ${thresholdLettering}%. Pass: ${calculatedPass}. Reason: ${result.reason}`;
+        const logMsg = `[Auto-Review ${phaseLabel}] Model: ${reviewModel}. Total: ${result.total_score}/400% (Likeness: ${result.likeness_score}%, Continuity: ${result.continuity_score}%, Story: ${result.story_score}%, ${specialScoreLabel}: ${specialScoreValue}%). Threshold: ${scoreThreshold}% & Likeness >= ${thresholdLikeness}% & ${specialScoreLabel} >= ${thresholdLettering}%. Pass: ${calculatedPass}. Reason: ${result.reason}`;
         console.error(`DEBUG - ${logMsg}`);
         
         // Log to file
@@ -944,9 +946,11 @@ export class ImageGenerator {
     isColor: boolean,
     artPrompt?: string,
     phase1Correction?: string,
-    promptsDir?: string
+    promptsDir?: string,
+    textModel?: string
   ): Promise<string> {
-    console.error(`DEBUG - Phase 2: Adding text ${isColor ? 'and color ' : ''}to ${pageHeader} using ${this.textModel}...`);
+    const usedTextModel = textModel || this.textModel;
+    console.error(`DEBUG - Phase 2: Adding text ${isColor ? 'and color ' : ''}to ${pageHeader} using ${usedTextModel}...`);
     if (artPrompt) {
         const msg = `DEBUG - Phase 2 received visual context from Phase 1 prompt (${artPrompt.length} chars).`;
         console.error(msg);
@@ -1041,7 +1045,7 @@ export class ImageGenerator {
         }
 
         const response = await this.ai.models.generateContent({
-            model: this.textModel,
+            model: usedTextModel,
             config: {
                 responseModalities: ['IMAGE'],
                 safetySettings: this.getSafetySettings(),
@@ -1066,7 +1070,7 @@ export class ImageGenerator {
                     const newPath = path.join(dir, newFileName);
                     await FileHandler.saveImageFromBase64(b64, dir, newFileName);
                     
-                    await this.logGeneration(this.textModel, [newPath], `Phase 2 (Lettering) for ${pageHeader}. Total: ${references.length} references.`);
+                    await this.logGeneration(usedTextModel, [newPath], `Phase 2 (Lettering) for ${pageHeader}. Total: ${references.length} references.`);
                     console.error(`DEBUG - Phase 2 SUCCESS: Saved final image to ${newPath}. (Used ${references.length} references)`);
                     return newPath;
                 }
@@ -3243,7 +3247,8 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                                       minNoBubbles: request.minNoBubbles,
                                       storyContext: contextForReview,
                                       isPhase1: true,
-                                      isColor: request.color
+                                      isColor: request.color,
+                                      reviewModel: request.reviewModel
                                   });
                                   phase1Review = { ...r, likeness_score: r.likeness_score ?? 0, lettering_score: r.lettering_score ?? 0 };
                                   
@@ -3332,7 +3337,8 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                                   request.color || false,
                                   phase1Prompt || originalPromptText,
                                   phase1Warning,
-                                  promptsDir
+                                  promptsDir,
+                                  request.reviewModel
                               );
                               await this.logToDisk(`Phase 2 (Final) Completed`);
                           } catch (e) {
@@ -3370,7 +3376,8 @@ IMPORTANT: This is the ART PHASE. You must generate the panels and art but **STR
                             minContinuity: request.minContinuity,
                             minLettering: request.minLettering,
                             storyContext: contextForReview,
-                            isColor: request.color
+                            isColor: request.color,
+                            reviewModel: request.reviewModel
                           });
                           review = { ...r, likeness_score: r.likeness_score ?? 0, lettering_score: r.lettering_score ?? 0 };
                           

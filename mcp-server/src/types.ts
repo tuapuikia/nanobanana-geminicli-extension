@@ -46,6 +46,7 @@ export interface ImageGenerationRequest {
   temperature?: number;
   topP?: number;
   showTags?: boolean;
+  reviewModel?: string;
 }
 
 export interface ImageGenerationResponse {
@@ -130,4 +131,5 @@ export interface MangaPromptArgs {
   temperature?: number;
   top_p?: number;
   show_tags?: boolean;
+  review_model?: string;
 }
