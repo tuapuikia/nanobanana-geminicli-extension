@@ -1771,9 +1771,18 @@ export class ImageGenerator {
         // Note: regex.exec is stateful.
         while ((charMatch = charListRegex.exec(globalContext)) !== null) {
             const fullMatchLine = charMatch[0];
-            const charName = charMatch[1].trim();
+            let charName = charMatch[1].trim();
             let charDesc = charMatch[2].trim();
             
+            // Extract Tag from Name if present (e.g. "Packet-kun (Tag: pkt)")
+            let extractedTag = "";
+            const tagMatch = charName.match(/\((?:Tag|tag):\s*([^)]+)\)/i);
+            if (tagMatch) {
+                extractedTag = tagMatch[1].trim();
+                charName = charName.replace(/\s*\([^)]+\)/g, '').trim();
+                console.error(`DEBUG - Extracted tag "${extractedTag}" for character "${charName}"`);
+            }
+
             // Handle Multi-line/Nested Descriptions
             // If the description on the same line is empty or very short, look for nested bullets
             if (charDesc.length < 5) {
@@ -1842,7 +1851,7 @@ export class ImageGenerator {
                 }
                 
                 if (!isValidSection) {
-                    console.error(`DEBUG - Skipping potential character "${charName}" because it is in non-character section: "${lastHeaderMatch[2]}"`);
+                    console.error(`DEBUG - Skipping potential character "${charName}" because it is in non-character section: "${lastHeaderMatch[2]}" (Hint: Move definitions under a "## Characters" header)`);
                     continue;
                 }
             } else {
@@ -1855,7 +1864,8 @@ export class ImageGenerator {
                 }
             }
 
-            const safeName = charName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+            // Filename generation: Use tag if available, otherwise sanitized name
+            const safeName = (extractedTag || charName).toLowerCase().replace(/[^a-z0-9]/g, '_');
             const charFilename = request.color ? `${safeName}_portrait_color.png` : `${safeName}_portrait.png`;
             const charRelPath = path.join('characters', charFilename);
             const charAbsPath = path.join(charsDir, charFilename);
@@ -2108,11 +2118,20 @@ export class ImageGenerator {
         let headerMatch;
         
         while ((headerMatch = headerCharRegex.exec(globalContext)) !== null) {
-            const charName = headerMatch[1].trim();
+            let charName = headerMatch[1].trim();
             const charDesc = headerMatch[2].trim();
             
             // Skip empty or likely system headers
             if (!charName || charName.toLowerCase() === 'character style' || charName.toLowerCase() === 'characters') continue;
+
+            // Extract Tag from Name if present (e.g. "Packet-kun (Tag: pkt)")
+            let extractedTag = "";
+            const tagMatch = charName.match(/\((?:Tag|tag):\s*([^)]+)\)/i);
+            if (tagMatch) {
+                extractedTag = tagMatch[1].trim();
+                charName = charName.replace(/\s*\([^)]+\)/g, '').trim();
+                console.error(`DEBUG - Extracted tag "${extractedTag}" for character "${charName}"`);
+            }
 
             // Section Validation: Check if we are inside a "Character" section
             const matchIndex = headerMatch.index;
@@ -2127,7 +2146,7 @@ export class ImageGenerator {
                 const isValidSection = validSectionKeywords.some(kw => headerTitle.includes(kw));
                 
                 if (!isValidSection) {
-                     console.error(`DEBUG - Skipping potential character header "${charName}" because parent section is: "${lastParentHeaderMatch[2]}"`);
+                     console.error(`DEBUG - Skipping potential character header "${charName}" because parent section is: "${lastParentHeaderMatch[2]}" (Hint: Move definitions under a "## Characters" header)`);
                      continue;
                 }
             } else {
@@ -2141,12 +2160,13 @@ export class ImageGenerator {
                  }
             }
 
-            const safeName = charName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+            // Filename generation: Use tag if available, otherwise sanitized name
+            const safeName = (extractedTag || charName).toLowerCase().replace(/[^a-z0-9]/g, '_');
             const charFilename = request.color ? `${safeName}_portrait_color.png` : `${safeName}_portrait.png`;
             const charRelPath = path.join('characters', charFilename);
             const charAbsPath = path.join(charsDir, charFilename);
             
-            // Skip if description already contains the target link (to avoid loops or double adds)
+            // Skip ONLY if description already contains the target link AND the file exists
             if (charDesc.includes(charFilename)) {
                 // IMPORTANT: Even if the link exists, we MUST load it into memory for this session
                 const existingRes = FileHandler.findInputFile(charAbsPath);
@@ -2162,8 +2182,10 @@ export class ImageGenerator {
                     } catch (e) {
                         console.error(`DEBUG - Failed to load existing reference for ${charName}:`, e);
                     }
+                    continue;
+                } else {
+                    console.error(`DEBUG - Character link found for ${charName} but file missing on disk. Regenerating...`);
                 }
-                continue;
             }
 
             console.error(`DEBUG - Processing character definition (Header): ${charName}`);
