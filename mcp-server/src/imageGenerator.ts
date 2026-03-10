@@ -1762,7 +1762,7 @@ export class ImageGenerator {
         // 1. Parse Explicit Character List in Text
         // Matches: * **Name:** Description  OR  - **Name:** Description
         // UPDATED: Now supports multi-line nested bullets (e.g. Visuals: ...)
-        const charListRegex = /^\s*[\*\-]\s*\*\*([^\*:\n]+)(?::)?\*\*(.*)$/gm;
+        const charListRegex = /^\s*[\*\-]\s*\*\*([^\*\n]+?)(?::)?\*\*(.*)$/gm;
         let charMatch;
         let storyContentModified = false;
         let newStoryContent = storyContent;
@@ -2114,7 +2114,7 @@ export class ImageGenerator {
         // 1.5 Parse Header-based Character Definitions (### Name)
         // Matches: ### Name
         // Content...
-        const headerCharRegex = /(?:^|\n)#{3}\s*(?!Page)([^:\n]+)(?::)?(?:\n|$)([\s\S]*?)(?=(?:\n#{1,3}|\n#{1,2}\s*Page|$))/gi;
+        const headerCharRegex = /(?:^|\n)#{3}\s*(?!Page)(.+?)(?::)?(?:\n|$)([\s\S]*?)(?=(?:\n#{1,3}|\n#{1,2}\s*Page|$))/gi;
         let headerMatch;
         
         while ((headerMatch = headerCharRegex.exec(globalContext)) !== null) {
@@ -2483,7 +2483,7 @@ export class ImageGenerator {
             // Process all found sections
             for (const sectionContent of allEnvSections) {
                  // Parse bullet points: - **Name:** Description
-                 const envItemRegex = /^\s*[\*\-]\s*\*\*([^\*:\n]+)(?::)?\*\*(.*)$/gm;
+                 const envItemRegex = /^\s*[\*\-]\s*\*\*([^\*\n]+?)(?::)?\*\*(.*)$/gm;
                  let envItemMatch;
                  
                  while ((envItemMatch = envItemRegex.exec(sectionContent)) !== null) {
