@@ -2488,14 +2488,43 @@ export class ImageGenerator {
                  
                  while ((envItemMatch = envItemRegex.exec(sectionContent)) !== null) {
                      const fullLine = envItemMatch[0];
-                     const envName = envItemMatch[1].trim();
+                     let envName = envItemMatch[1].trim();
                      const envDesc = envItemMatch[2].trim();
                      
-                     const safeName = envName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+                     // Extract Tag from Name if present (e.g. "Kitchen (Tag: kit)")
+                     let extractedTag = "";
+                     const tagMatch = envName.match(/\((?:Tag|tag):\s*([^)]+)\)/i);
+                     if (tagMatch) {
+                         extractedTag = tagMatch[1].trim();
+                         envName = envName.replace(/\s*\([^)]+\)/g, '').trim();
+                         console.error(`DEBUG - Extracted tag "${extractedTag}" for environment "${envName}"`);
+                     }
+
+                     const safeName = (extractedTag || envName).toLowerCase().replace(/[^a-z0-9]/g, '_');
                      const envFilename = `${safeName}_environment.png`;
                      const envRelPath = path.join('environments', envFilename);
                      const envAbsPath = path.join(envsDir, envFilename);
                      
+                     // Robust Skip Check: If line already has THIS specific image link AND the file actually exists
+                     if (fullLine.includes(envFilename)) {
+                        const existingRes = FileHandler.findInputFile(envAbsPath);
+                        if (existingRes.found) {
+                            if (!loadedGlobalImagePaths.has(existingRes.filePath!)) {
+                                try {
+                                    const b64 = await FileHandler.readImageAsBase64(existingRes.filePath!);
+                                    globalReferenceImages.push({ data: b64, mimeType: 'image/png', sourcePath: existingRes.filePath! });
+                                    loadedGlobalImagePaths.add(existingRes.filePath!);
+                                    console.error(`DEBUG - Loaded existing environment ref from text: ${envName}`);
+                                } catch (e) {
+                                    console.error(`DEBUG - Failed to load existing environment ref for ${envName}:`, e);
+                                }
+                            }
+                            continue; 
+                        } else {
+                            console.error(`DEBUG - Environment link found for ${envName} but file missing on disk. Regenerating...`);
+                        }
+                     }
+
                      // Check if file exists on disk (Check for ANY of the new multi-angle files or the legacy one)
                      // We will prioritize the new format: _env_far.png
                      
