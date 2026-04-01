@@ -174,8 +174,17 @@ export class ImageGenerator {
     }
     console.error('DEBUG - GOOGLE_API_KEY not found');
 
+    const geminiCliAppKey = process.env.GEMINI_CLI_APP;
+    if (geminiCliAppKey) {
+      console.error(
+        '✓ Found GEMINI_CLI_APP environment variable (fallback)',
+      );
+      return { apiKey: geminiCliAppKey, keyType: 'GEMINI_API_KEY' };
+    }
+    console.error('DEBUG - GEMINI_CLI_APP not found');
+
     throw new Error(
-      'ERROR: No valid API key found. Please set NANOBANANA_GEMINI_API_KEY, NANOBANANA_GOOGLE_API_KEY, GEMINI_API_KEY, or GOOGLE_API_KEY environment variable.\n' +
+      'ERROR: No valid API key found. Please set NANOBANANA_GEMINI_API_KEY, NANOBANANA_GOOGLE_API_KEY, GEMINI_API_KEY, GEMINI_CLI_APP, or GOOGLE_API_KEY environment variable.\n' +
         'For more details on authentication, visit: https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/authentication.md',
     );
   }

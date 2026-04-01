@@ -24,6 +24,7 @@ A professional Gemini CLI extension for generating and manipulating images using
    - `NANOBANANA_GOOGLE_API_KEY` (recommended for Vertex API key users who
      normally authenticate to Gemini CLI using the "Login with Google" option)
    - `GEMINI_API_KEY` (fallback)
+   - `GEMINI_CLI_APP` (fallback)
    - `GOOGLE_API_KEY` (fallback)
 
 For authentication setup, see the [official Gemini CLI documentation](https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/authentication.md).
